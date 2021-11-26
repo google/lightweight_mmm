@@ -107,18 +107,22 @@ costs = cost_scaler.fit_transform(unscaled_costs)
 
 The model requires the media data, the extra features, the costs of each media
 unit per channel and the target. You can also pass how many samples one would
-like to use as well as the number of chains. See an example below:
+like to use as well as the number of chains. 
+
+For running multiple chains in parallel the user would need to set `numpyro.set_host_device_count` to either the number of chains or the number of CPUs available.
+
+See an example below:
 
 ```
 # Fit model.
 mmm = lightweight_mmm.LightweightMMM()
-mmm.fit(
-    media=media_data_train, # Has shape (n_time_spans, n_media_channels)
-    extra_features=extra_features_train, # Has shape (n_time_spans, n_extra_features)
-    costs=costs, # Has len = n_media_channels
-    target=target_train, # Has shape (n_time_spans, )
-    samples=1000,
-    number_chains=2)
+mmm.fit(media=media_data,
+        extra_features=extra_features,
+        costs=costs,
+        target=target,
+        number_warmup=1000,
+        number_samples=1000,
+        number_chains=2)
 ```
 
 ### Obtaining media effect and ROI
@@ -164,13 +168,12 @@ For running the optimization one needs the following main parameters:
 - The `budget` you want to allocate for the next `n_time_periods`.
 - The extra features used for training for the following `n_time_periods`.
 - Price per media unit per channel.
-- `prediction_date_index_start`: Indicates the first time period of the
-  optimization. By default it will start where training data ended, but this can
-  be changed. Index 1 is the first time of training data and index
-  `training_data_size + 1` is the default. If training was done using 100 weeks of
-  data and we want to start optimizing for 2 months after training data ended,
-  we would pass `prediction_date_index_start=109`
-  (`training_data_size + 1 + desired_offset`).
+- `media_gap` refers to the media data gap between the end of training data and 
+  the start of the out of sample media given. Eg. if 100 weeks of data were used 
+  for training and prediction starts 2 months after training data finished we 
+  need to provide the 8 weeks missing between the training data and the 
+  prediction data so data transformations (adstock, carryover, ...) can take 
+  place correctly.
 
 See below and example of optimization:
 
