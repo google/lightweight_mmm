@@ -33,6 +33,7 @@ mmm.predict(media=media_data_test, extra_features=extra_features_test)
 ```
 """
 
+import dataclasses
 import functools
 import logging
 from typing import Any, Callable, Dict, Optional, Sequence, Tuple
@@ -59,6 +60,7 @@ class NotFittedModelError(Exception):
   pass
 
 
+@dataclasses.dataclass(unsafe_hash=True)
 class LightweightMMM:
   """Lightweight Media Mix Modelling wrapper for bayesian models.
 
@@ -77,17 +79,18 @@ class LightweightMMM:
     media: The media data the model is trained on. Usefull for a variety of
       insights post model fitting.
     media_names: Names of the media channels passed at fitting time.
+    seed: Starting seed to use for PRNGKeys.
   """
+  model_name: str = "hill_adstock"
+  seed: int = 0
 
-  def __init__(self, model_name: str = "hill_adstock", seed: int = 5) -> None:
-    if model_name in _NAMES_TO_MODEL_TRANSFORMS:
-      self._model_transform_function = _NAMES_TO_MODEL_TRANSFORMS[model_name]
-      self._model_function = _MODEL_FUNCTION
-      self.model_name = model_name
-    else:
+  def __post_init__(self):
+    if self.model_name not in _NAMES_TO_MODEL_TRANSFORMS:
       raise ValueError("Model name passed not valid. Please use any of the"
                        "following: 'hill_adstock', 'adstock', 'carryover'.")
-    self._main_rng = jax.random.PRNGKey(seed)
+    self._model_function = _MODEL_FUNCTION
+    self._model_transform_function = _NAMES_TO_MODEL_TRANSFORMS[self.model_name]
+    self._main_rng = jax.random.PRNGKey(self.seed)
     self._fit_rng, self._predict_rng = jax.random.split(self._main_rng)
 
   def fit(self,
