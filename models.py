@@ -116,8 +116,8 @@ def transform_carryover(media_data: jnp.array,
 def media_mix_model(media_data: jnp.array,
                     target_data: jnp.array,
                     cost_prior: jnp.array,
-                    degrees_seasonality: jnp.array,
-                    frequency: jnp.array,
+                    degrees_seasonality: int,
+                    frequency: int,
                     transform_function: Callable[[jnp.array], jnp.array],
                     transform_kwargs: Mapping[str,
                                               Any] = frozendict.frozendict(),
@@ -143,6 +143,8 @@ def media_mix_model(media_data: jnp.array,
   intercept = numpyro.sample("intercept", dist.Normal(loc=0., scale=2.))
   sigma = numpyro.sample("sigma", dist.Gamma(concentration=1., rate=1.))
   beta_trend = numpyro.sample("beta_trend", dist.Normal(loc=0., scale=1.))
+  expo_trend = numpyro.sample("expo_trend",
+                              dist.Beta(concentration1=1., concentration0=1.))
 
   with numpyro.plate("media_plate", media_data.shape[1]) as i:
     beta_media = numpyro.sample("beta_media",
@@ -163,8 +165,8 @@ def media_mix_model(media_data: jnp.array,
       gamma_seasonality=gamma_seasonality)
 
   prediction = (
-      intercept + beta_trend * jnp.arange(data_size) + seasonality +
-      media_transformed.dot(beta_media))
+      intercept + beta_trend * jnp.arange(data_size) ** (expo_trend + 0.5) +
+      seasonality + media_transformed.dot(beta_media))
   if extra_features is not None:
     with numpyro.plate("extra_features_plate", extra_features.shape[1]):
       beta_extra_features = numpyro.sample("beta_extra_features",
