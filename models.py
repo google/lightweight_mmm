@@ -43,14 +43,14 @@ def transform_adstock(media_data: jnp.array,
   Returns:
     The transformed media data.
   """
-  with numpyro.plate("decay_plate", media_data.shape[1]):
-    decay = numpyro.sample("decay",
-                           dist.Beta(concentration1=2., concentration0=1.))
+  with numpyro.plate("lag_weight_plate", media_data.shape[1]):
+    lag_weight = numpyro.sample("lag_weight",
+                                dist.Beta(concentration1=2., concentration0=1.))
   with numpyro.plate("exponent_plate", media_data.shape[1]):
     exponent = numpyro.sample("exponent",
                               dist.Beta(concentration1=9., concentration0=1.))
   return media_transforms.adstock(
-      data=media_data, decay=decay, normalise=normalise)**exponent
+      data=media_data, lag_weight=lag_weight, normalise=normalise)**exponent
 
 
 def transform_hill_adstock(media_data: jnp.array,
@@ -64,9 +64,9 @@ def transform_hill_adstock(media_data: jnp.array,
   Returns:
     The transformed media data.
   """
-  with numpyro.plate("decay_plate", media_data.shape[1]):
-    decay = numpyro.sample("decay",
-                           dist.Beta(concentration1=2., concentration0=1.))
+  with numpyro.plate("lag_weight_plate", media_data.shape[1]):
+    lag_weight = numpyro.sample("lag_weight",
+                                dist.Beta(concentration1=2., concentration0=1.))
 
   with numpyro.plate("half_max_effective_concentration_plate",
                      media_data.shape[1]):
@@ -79,7 +79,7 @@ def transform_hill_adstock(media_data: jnp.array,
 
   return media_transforms.hill(
       data=media_transforms.adstock(
-          data=media_data, decay=decay, normalise=normalise),
+          data=media_data, lag_weight=lag_weight, normalise=normalise),
       half_max_effective_concentration=half_max_effective_concentration,
       slope=slope)
 

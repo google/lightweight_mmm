@@ -93,27 +93,27 @@ class MediaTransformsTest(parameterized.TestCase):
       dict(
           testcase_name="five_channels",
           data=np.ones((100, 5)),
-          decay=np.array([0.2, 0.3, 0.8, 0.2, 0.1]),
+          lag_weight=np.array([0.2, 0.3, 0.8, 0.2, 0.1]),
           normalise=True),
       dict(
           testcase_name="one_channels",
           data=np.ones((100, 1)),
-          decay=np.array([0.4]),
+          lag_weight=np.array([0.4]),
           normalise=False),
       dict(
           testcase_name="ten_channels",
           data=np.ones((100, 10)),
-          decay=np.ones(10),
+          lag_weight=np.ones(10),
           normalise=True),
       dict(
           testcase_name="zeros",
           data=np.zeros((100, 10)),
-          decay=np.ones(10),
+          lag_weight=np.ones(10),
           normalise=True),
   ])
-  def test_adstock_produces_correct_shape(self, data, decay, normalise):
+  def test_adstock_produces_correct_shape(self, data, lag_weight, normalise):
     generated_output = media_transforms.adstock(
-        data=data, decay=decay, normalise=normalise)
+        data=data, lag_weight=lag_weight, normalise=normalise)
 
     self.assertEqual(generated_output.shape, data.shape)
 

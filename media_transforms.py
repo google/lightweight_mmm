@@ -61,7 +61,7 @@ def calculate_seasonality(
 
 @jax.jit
 def adstock(data: jnp.ndarray,
-            decay: float = .9,
+            lag_weight: float = .9,
             normalise: bool = True) -> jnp.ndarray:
   """Calculates the adstock value of a given array.
 
@@ -70,9 +70,9 @@ def adstock(data: jnp.ndarray,
 
   Args:
     data: Input array.
-    decay: Decay effect of the adstock function. Default is 0.9.
+    lag_weight: lag_weight effect of the adstock function. Default is 0.9.
     normalise: Whether to normalise the output value. This normalization will
-      divide the output values by (1 / (1 - decay)).
+      divide the output values by (1 / (1 - lag_weight)).
 
   Returns:
     The adstock output of the input array.
@@ -80,8 +80,8 @@ def adstock(data: jnp.ndarray,
 
   def adstock_internal(prev_adstock: jnp.array,
                        data: jnp.array,
-                       decay: float = decay) -> jnp.array:
-    adstock_value = prev_adstock * decay + data
+                       lag_weight: float = lag_weight) -> jnp.array:
+    adstock_value = prev_adstock * lag_weight + data
     return adstock_value, adstock_value
 
   _, adstock_values = jax.lax.scan(
@@ -89,7 +89,7 @@ def adstock(data: jnp.ndarray,
   adstock_values = jnp.concatenate([jnp.array([data[0, ...]]), adstock_values])
   return jax.lax.cond(
       normalise,
-      lambda adstock_values: adstock_values / (1. / (1 - decay)),
+      lambda adstock_values: adstock_values / (1. / (1 - lag_weight)),
       lambda adstock_values: adstock_values,
       operand=adstock_values)
 
