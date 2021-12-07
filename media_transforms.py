@@ -78,9 +78,9 @@ def adstock(data: jnp.ndarray,
     The adstock output of the input array.
   """
 
-  def adstock_internal(prev_adstock: jnp.array,
-                       data: jnp.array,
-                       lag_weight: float = lag_weight) -> jnp.array:
+  def adstock_internal(prev_adstock: jnp.ndarray,
+                       data: jnp.ndarray,
+                       lag_weight: float = lag_weight) -> jnp.ndarray:
     adstock_value = prev_adstock * lag_weight + data
     return adstock_value, adstock_value
 
@@ -116,8 +116,8 @@ def hill(data: jnp.ndarray, half_max_effective_concentration: jnp.ndarray,
 
 
 @functools.partial(jax.vmap, in_axes=(1, 1, None))
-def carryover_convolve(data: jnp.array, weights: jnp.array,
-                       number_lags: int) -> jnp.array:
+def carryover_convolve(data: jnp.ndarray, weights: jnp.ndarray,
+                       number_lags: int) -> jnp.ndarray:
   """Applies the convolution between the data and the weights for the carryover.
 
   Args:

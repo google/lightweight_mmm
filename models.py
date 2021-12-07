@@ -32,8 +32,8 @@ from numpyro import distributions as dist
 from lightweight_mmm import media_transforms
 
 
-def transform_adstock(media_data: jnp.array,
-                      normalise: bool = True) -> jnp.array:
+def transform_adstock(media_data: jnp.ndarray,
+                      normalise: bool = True) -> jnp.ndarray:
   """Transforms the input data with the adstock function and exponent.
 
   Args:
@@ -53,8 +53,8 @@ def transform_adstock(media_data: jnp.array,
       data=media_data, lag_weight=lag_weight, normalise=normalise)**exponent
 
 
-def transform_hill_adstock(media_data: jnp.array,
-                           normalise: bool = True) -> jnp.array:
+def transform_hill_adstock(media_data: jnp.ndarray,
+                           normalise: bool = True) -> jnp.ndarray:
   """Transforms the input data with the adstock and hill functions.
 
   Args:
@@ -84,8 +84,8 @@ def transform_hill_adstock(media_data: jnp.array,
       slope=slope)
 
 
-def transform_carryover(media_data: jnp.array,
-                        number_lags: int = 13) -> jnp.array:
+def transform_carryover(media_data: jnp.ndarray,
+                        number_lags: int = 13) -> jnp.ndarray:
   """Transforms the input data with the carryover function and exponent.
 
   Args:
@@ -113,9 +113,9 @@ def transform_carryover(media_data: jnp.array,
       number_lags=number_lags)**exponent
 
 
-def media_mix_model(media_data: jnp.array,
-                    target_data: jnp.array,
-                    cost_prior: jnp.array,
+def media_mix_model(media_data: jnp.ndarray,
+                    target_data: jnp.ndarray,
+                    cost_prior: jnp.ndarray,
                     degrees_seasonality: int,
                     frequency: int,
                     transform_function: Callable[[jnp.array], jnp.array],

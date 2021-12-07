@@ -181,13 +181,13 @@ class LightweightMMM:
       jax.jit,
       static_argnums=(0,),
       static_argnames=("degrees_seasonality", "transform_function", "model"))
-  def _predict(self, rng_key: jnp.array, media_data: jnp.array,
-               extra_features: Optional[jnp.array], cost_prior: jnp.array,
+  def _predict(self, rng_key: jnp.ndarray, media_data: jnp.ndarray,
+               extra_features: Optional[jnp.ndarray], cost_prior: jnp.ndarray,
                degrees_seasonality: int, frequency: int,
-               transform_function: Callable[[Any],
-                                            jnp.array], model: Callable[[Any],
-                                                                        None],
-               posterior_samples: Dict[str, jnp.array]) -> Dict[str, jnp.array]:
+               transform_function: Callable[[Any], jnp.ndarray],
+               model: Callable[[Any], None],
+               posterior_samples: Dict[str, jnp.ndarray]
+               ) -> Dict[str, jnp.ndarray]:
     """Encapsulates the numpyro.infer.Predictive function for predict method.
 
     It serves as a helper jitted function for running predictions.
