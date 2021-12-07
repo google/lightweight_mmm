@@ -50,7 +50,7 @@ class OptimizeMediaTest(parameterized.TestCase):
     kpi_predicted = optimize_media._objective_function(
         extra_features=extra_features,
         media_mix_model=mmm,
-        model_input_shape=media_shape,
+        media_input_shape=media_shape,
         media_gap=None,
         target_scaler=None,
         media_scaler=preprocessing.CustomScaler(),
@@ -133,10 +133,6 @@ class OptimizeMediaTest(parameterized.TestCase):
     # 15 weeks at 1.2 gives us 18. bounds
     self.assertEqual(call_kwargs["bounds"], [(0.0, 18.0), (0.0, 18.0),
                                              (0.0, 18.0)])
-    # Starting values are set at midpoint between lower and upper bound.
-    # Therefore 0 and 18 gives us 9.
-    np.testing.assert_array_almost_equal(call_kwargs["x0"],
-                                         jnp.array([9., 9., 9.]))
     np.testing.assert_array_equal(call_kwargs["fun"].args[5].divide_by,
                                   expected_media_scaler.divide_by)
     np.testing.assert_array_equal(call_kwargs["fun"].args[5].multiply_by,

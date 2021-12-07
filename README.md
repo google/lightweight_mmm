@@ -182,7 +182,7 @@ See below and example of optimization:
 budget = 40
 prices = np.array([0.1, 0.11, 0.12])
 extra_features_test = extra_features_scaler.transform(extra_features_test)
-solution = optimize_media.find_optimal_bugets(
+solution = optimize_media.find_optimal_budgets(
     n_time_periods=extra_features_test.shape[0],
     media_mix_model=mmm,
     budget=budget,

@@ -15,7 +15,7 @@
 """Utilities for optimizing your media based on media mix models."""
 import functools
 from typing import List, Optional, Tuple, Union
-
+from absl import logging
 import jax
 import jax.numpy as jnp
 from scipy import optimize
@@ -26,11 +26,11 @@ from lightweight_mmm import preprocessing
 
 @functools.partial(
     jax.jit,
-    static_argnames=("media_mix_model", "model_input_shape", "target_scaler",
+    static_argnames=("media_mix_model", "media_input_shape", "target_scaler",
                      "media_scaler"))
 def _objective_function(extra_features: jnp.ndarray,
                         media_mix_model: lightweight_mmm.LightweightMMM,
-                        model_input_shape: Tuple[int,
+                        media_input_shape: Tuple[int,
                                                  int], media_gap: Optional[int],
                         target_scaler: Optional[preprocessing.CustomScaler],
                         media_scaler: preprocessing.CustomScaler,
@@ -41,7 +41,7 @@ def _objective_function(extra_features: jnp.ndarray,
     extra_features: Extra features the model requires for prediction.
     media_mix_model: Media mix model to use. Must have a predict method to be
       used.
-    model_input_shape: Input shape of the data required by the model to get
+    media_input_shape: Input shape of the data required by the model to get
       predictions. This is needed since optimization might flatten some arrays
       and they need to be reshaped before running new predictions.
     media_gap: Media data gap between the end of training data and the start of
@@ -58,12 +58,12 @@ def _objective_function(extra_features: jnp.ndarray,
     The negative value of the sum of all predictions.
   """
   media_values = jnp.tile(
-      media_values / model_input_shape[0], reps=model_input_shape[0])
-  media_values = jnp.reshape(a=media_values, newshape=model_input_shape)
+      media_values / media_input_shape[0], reps=media_input_shape[0])
+  media_values = jnp.reshape(a=media_values, newshape=media_input_shape)
   media_values = media_scaler.transform(media_values)
   return -jnp.sum(
       media_mix_model.predict(
-          media=media_values.reshape(model_input_shape),
+          media=media_values.reshape(media_input_shape),
           extra_features=extra_features,
           media_gap=media_gap,
           target_scaler=target_scaler).mean(axis=0))
@@ -87,7 +87,7 @@ def _budget_constraint(media: jnp.ndarray, prices: jnp.ndarray,
 
 
 def _get_lower_and_upper_bounds(
-    media: jnp.array,
+    media: jnp.ndarray,
     n_time_periods: int,
     lower_pct: float,
     upper_pct: float,
@@ -121,6 +121,37 @@ def _get_lower_and_upper_bounds(
   return list(zip(lower_bounds.tolist(), upper_bounds.tolist()))
 
 
+def _generate_starting_values(
+    n_time_periods: int,
+    media: jnp.ndarray,
+    media_scaler: preprocessing.CustomScaler,
+    budget: Union[float, int]
+    ) -> jnp.ndarray:
+  """Generates starting values based on historic allocation and budget.
+
+  In order to make a comparison we can take the allocation of the last
+  `n_time_periods` and scale it based on the given budget. Given this one can
+  compare how this initial values (based on historic allocation) compare to the
+  output of the optimisation in terms of sales/KPI.
+
+  Args:
+    n_time_periods: Number of time periods the optimization will be done with.
+    media: Historic media data the model was trained with.
+    media_scaler: Scaler that was used to scale the media data before training.
+    budget: Total budget to allocate during the optimization time.
+
+  Returns:
+    An array with the starting value for each media channel for the
+      optimization.
+  """
+  previous_allocation = media[-n_time_periods:, ...].sum(axis=0)
+  if media_scaler:
+    previous_allocation = media_scaler.inverse_transform(previous_allocation)
+
+  multiplier = budget / previous_allocation.sum()
+  return previous_allocation * multiplier
+
+
 def find_optimal_budgets(
     n_time_periods: int,
     media_mix_model: lightweight_mmm.LightweightMMM,
@@ -130,8 +161,8 @@ def find_optimal_budgets(
     media_gap: Optional[jnp.ndarray] = None,
     target_scaler: Optional[preprocessing.CustomScaler] = None,
     media_scaler: Optional[preprocessing.CustomScaler] = None,
-    bounds_lower_pct: Union[float, jnp.array] = .2,
-    bounds_upper_pct: Union[float, jnp.array] = .2,
+    bounds_lower_pct: Union[float, jnp.ndarray] = .2,
+    bounds_upper_pct: Union[float, jnp.ndarray] = .2,
     max_iterations: int = 500) -> optimize.OptimizeResult:
   """Finds the best media allocation based on MMM model, prices and a budget.
 
@@ -179,14 +210,17 @@ def find_optimal_budgets(
       upper_pct=bounds_upper_pct,
       media_scaler=media_scaler)
 
-  starting_values = jnp.array([(bound[0] + bound[1]) / 2 for bound in bounds])
+  starting_values = _generate_starting_values(n_time_periods=n_time_periods,
+                                              media=media_mix_model.media,
+                                              media_scaler=media_scaler,
+                                              budget=budget)
 
   if not media_scaler:
     media_scaler = preprocessing.CustomScaler(multiply_by=1, divide_by=1)
-
+  media_input_shape = (n_time_periods, media_mix_model.n_media_channels)
   partial_objective_function = functools.partial(
       _objective_function, extra_features, media_mix_model,
-      (n_time_periods, media_mix_model.n_media_channels), media_gap,
+      media_input_shape, media_gap,
       target_scaler, media_scaler)
 
   solution = optimize.minimize(
@@ -203,5 +237,16 @@ def find_optimal_budgets(
           "fun": _budget_constraint,
           "args": (prices, budget)
       })
+
+  kpi_without_optim = _objective_function(extra_features=extra_features,
+                                          media_mix_model=media_mix_model,
+                                          media_input_shape=media_input_shape,
+                                          media_gap=media_gap,
+                                          target_scaler=target_scaler,
+                                          media_scaler=media_scaler,
+                                          media_values=starting_values)
+  logging.info("KPI without optimization: %r", -1 * kpi_without_optim.item())
+  logging.info("KPI with optimization: %r", -1 * solution.fun)
+
   jax.config.update("jax_enable_x64", False)
   return solution
