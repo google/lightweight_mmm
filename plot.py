@@ -12,14 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Plotting functions pre and post model."""
+"""Plotting functions pre and post model fitting."""
 
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Sequence, Tuple
 
 import arviz
 import jax
 import jax.numpy as jnp
+import matplotlib
 import matplotlib.pyplot as plt
+import numpy as np
 import seaborn as sns
 
 from lightweight_mmm import lightweight_mmm
@@ -33,7 +35,7 @@ def _make_single_prediction(media_mix_model: lightweight_mmm.LightweightMMM,
 
   Serves as a helper function for making predictions individually for each media
   channel and one row at a time. It is meant to be used vmaped otherwise it can
-  be slow as its meant to be used for plotting curve responses only. Use
+  be slow as it's meant to be used for plotting curve responses only. Use
   lightweight_mmm.LightweightMMM for regular predict functionality.
 
   Args:
@@ -48,11 +50,11 @@ def _make_single_prediction(media_mix_model: lightweight_mmm.LightweightMMM,
       jnp.expand_dims(mock_media, axis=0), extra_features).mean(axis=0)
 
 
-def plot_curve_response(media_mix_model: lightweight_mmm.LightweightMMM,
-                        target_scaler: Optional[
-                            preprocessing.CustomScaler] = None,
-                        steps: int = 100,
-                        percentage_add: float = 0.1) -> None:
+def plot_response_curves(
+    media_mix_model: lightweight_mmm.LightweightMMM,
+    target_scaler: Optional[preprocessing.CustomScaler] = None,
+    steps: int = 100,
+    percentage_add: float = 0.1) -> matplotlib.figure.Figure:
   """Plots the response curves of each media channel based on the model.
 
   Args:
@@ -62,6 +64,9 @@ def plot_curve_response(media_mix_model: lightweight_mmm.LightweightMMM,
     steps: Number of steps to simulate.
     percentage_add: Percentage too exceed the maximum historic spend for the
       simulation of the response curve.
+
+  Returns:
+    Plot of Response curve.
   """
   if not hasattr(media_mix_model, "trace"):
     raise lightweight_mmm.NotFittedModelError(
@@ -89,6 +94,8 @@ def plot_curve_response(media_mix_model: lightweight_mmm.LightweightMMM,
   predictions = jnp.transpose(jnp.squeeze(a=predictions))
   if target_scaler:
     predictions = target_scaler.inverse_transform(predictions)
+
+  fig, ax = plt.subplots(1, 1)
   for i in range(media_ranges.shape[2]):
     ax = sns.lineplot(
         x=jnp.squeeze(media_ranges)[:, i],
@@ -97,6 +104,7 @@ def plot_curve_response(media_mix_model: lightweight_mmm.LightweightMMM,
   ax.set_title("Response curves")
   ax.set_ylabel("KPI")
   ax.set_xlabel("Spend per channel")
+  return fig
 
 
 def plot_cross_correlate(feature: jnp.ndarray,
@@ -130,13 +138,16 @@ def plot_cross_correlate(feature: jnp.ndarray,
 
 
 def plot_var_cost(media: jnp.ndarray, costs: jnp.ndarray,
-                  names: List[str]) -> None:
+                  names: List[str]) -> matplotlib.figure.Figure:
   """Plots a a chart between the coefficient of variation and cost.
 
   Args:
     media: Media matrix.
     costs: Cost vector.
     names: List of variable names.
+
+  Returns:
+    Plot of coefficient of variation and cost.
 
   Raises:
     ValueError if inputs don't conform to same length.
@@ -146,19 +157,21 @@ def plot_var_cost(media: jnp.ndarray, costs: jnp.ndarray,
   if media.shape[1] != len(names):
     raise ValueError("media columns and names needs to have same length.")
   coef_of_variation = media.std(axis=0) / media.mean(axis=0)
-  plt.scatter(x=costs, y=coef_of_variation)
+
+  fig, ax = plt.subplots(1, 1)
+  ax.scatter(x=costs, y=coef_of_variation)
   # https://queirozf.com/entries/add-labels-and-text-to-matplotlib-plots-annotation-examples.
   for i in range(len(costs)):
     x, y, label = costs[i], coef_of_variation[i], names[i]
-    plt.annotate(text=label, xy=(x, y))
-  plt.xlabel("Cost")
-  plt.ylabel("Coef of Variation")
-  plt.show()
+    ax.annotate(text=label, xy=(x, y))
+  ax.set_xlabel("Cost")
+  ax.set_ylabel("Coef of Variation")
+  return fig
 
 
 def plot_model_fit(media_mix_model: lightweight_mmm.LightweightMMM,
                    target_scaler: Optional[jnp.array] = None,
-                   interval_mid_range: float = .9) -> None:
+                   interval_mid_range: float = .9) -> matplotlib.figure.Figure:
   """Plots the ground truth, predicted value and interval for the training data.
 
   Model needs to be fit before calling this function to plot.
@@ -168,8 +181,11 @@ def plot_model_fit(media_mix_model: lightweight_mmm.LightweightMMM,
     target_scaler: Scaler used for scaling the target, to unscaled values and
       plot in the original scale.
     interval_mid_range: Mid range interval to take for plotting. Eg. .9 will use
-      .05 and .95 as the lower and upper quantiles. Must be a float number
+      .05 and .95 as the lower and upper quantiles. Must be a float number.
       between 0 and 1.
+
+  Returns:
+    Plot of model fit.
   """
   if not hasattr(media_mix_model, "trace"):
     raise lightweight_mmm.NotFittedModelError(
@@ -187,7 +203,7 @@ def plot_model_fit(media_mix_model: lightweight_mmm.LightweightMMM,
 
   r2, _ = arviz.r2_score(y_true=target_train, y_pred=posterior_pred)
 
-  _, ax = plt.subplots(1, 1)
+  fig, ax = plt.subplots(1, 1)
   ax.plot(jnp.arange(target_train.shape[0]), target_train, c="grey", alpha=.9)
   ax.plot(
       jnp.arange(target_train.shape[0]),
@@ -204,3 +220,86 @@ def plot_model_fit(media_mix_model: lightweight_mmm.LightweightMMM,
   ax.yaxis.grid(color="gray", linestyle="dashed", alpha=0.3)
   ax.xaxis.grid(color="gray", linestyle="dashed", alpha=0.3)
   ax.title.set_text(f"True and predicted KPI.\n R2 = {r2}")
+  return fig
+
+
+def plot_media_channel_posteriors(
+    media_mix_model: lightweight_mmm.LightweightMMM,
+    channel_names: Optional[Sequence[Any]] = None,
+    quantiles: Sequence[float] = (0.05, 0.5, 0.95),
+    n_columns: int = 3) -> matplotlib.figure.Figure:
+  """Plots the posterior distributions of estimated media channel effects.
+
+  Model needs to be fit before calling this function to plot.
+
+  Args:
+    media_mix_model: Media mix model.
+    channel_names: Names of media channels to be added to plot.
+    quantiles: Quantiles to draw on the distribution.
+    n_columns: Number of columns of generated subplot.
+
+  Returns:
+    Plot of posterior distributions.
+  """
+  if not hasattr(media_mix_model, "trace"):
+    raise lightweight_mmm.NotFittedModelError(
+        "Model needs to be fit first before attempting to plot its fit.")
+  n_media_channels = np.shape(media_mix_model.trace["beta_media"])[1]
+  n_rows = (n_media_channels + n_columns - 1) // n_columns
+
+  media_channel_posteriors = media_mix_model.trace["beta_media"]
+  if not channel_names:
+    channel_names = np.arange(np.shape(media_channel_posteriors)[1])
+  fig, axes = plt.subplots(n_rows, n_columns, figsize=(10, 10))
+  for index, ax in enumerate(axes.flatten()[:n_media_channels]):
+    ax = arviz.plot_kde(
+        media_channel_posteriors[:, index], quantiles=quantiles, ax=ax)
+    ax.set_xlabel(f"media channel {channel_names[index]}")
+
+  for index, ax in enumerate(axes.flatten()[n_media_channels:]):
+    fig.delaxes(ax)
+  fig.tight_layout()
+  return fig
+
+
+def plot_bars_media_effects(
+    effect: jnp.ndarray,
+    channel_names: Optional[Sequence[Any]] = None,
+    interval_mid_range: float = .9
+    ) -> matplotlib.figure.Figure:
+  """Plots a barchart of estimated media effects with their percentile interval.
+
+  The lower and upper percentile need to be between 0-1.
+
+  Args:
+    effect: Estimated media effects as returned by
+      lightweight_mmm.get_posterior_metrics()
+    channel_names: Names of media channels to be added to plot.
+    interval_mid_range: Mid range interval to take for plotting. Eg. .9 will use
+      .05 and .95 as the lower and upper quantiles. Must be a float number.
+
+  Returns:
+    Barplot of estimated media effects with defined percentile-bars.
+  """
+  if not channel_names:
+    channel_names = np.arange(np.shape(effect)[1])
+  upper_quantile = 1 - (1 - interval_mid_range) / 2
+  lower_quantile = (1 - interval_mid_range) / 2
+
+  fig, ax = plt.subplots(1, 1)
+  sns.barplot(data=effect, ci=None, ax=ax)
+  quantile_bounds = np.quantile(
+      effect, q=[lower_quantile, upper_quantile], axis=0)
+  quantile_bounds[0] = effect.mean(axis=0) - quantile_bounds[0]
+  quantile_bounds[1] = quantile_bounds[1] - effect.mean(axis=0)
+
+  ax.errorbar(
+      x=np.arange(np.shape(effect)[1]),
+      y=effect.mean(axis=0),
+      yerr=quantile_bounds,
+      fmt="none",
+      c="black")
+  fig.suptitle(
+      f"Estimated media channel effects, error bars show {lower_quantile} - {upper_quantile} credibility interval"
+  )
+  return fig

@@ -30,8 +30,8 @@ class PlotTest(parameterized.TestCase):
 
   def setUp(self):
     super().setUp()
-    self.mock_plt_scatter = self.enter_context(
-        mock.patch.object(plot.plt, "scatter", autospec=True))
+    self.mock_ax_scatter = self.enter_context(
+        mock.patch.object(plot.plt.Axes, "scatter", autospec=True))
     self.mock_sns_lineplot = self.enter_context(
         mock.patch.object(plot.sns, "lineplot", autospec=True))
     self.mock_plt_plot = self.enter_context(
@@ -72,7 +72,7 @@ class PlotTest(parameterized.TestCase):
       dict(testcase_name="three_channel", n_channels=3),
       dict(testcase_name="ten_channels", n_channels=10),
   ])
-  def test_plot_curve_response_plots_n_times_with_correct_params(
+  def test_plot_response_curves_plots_n_times_with_correct_params(
       self, n_channels):
     mmm = lightweight_mmm.LightweightMMM()
     mmm.fit(
@@ -83,7 +83,7 @@ class PlotTest(parameterized.TestCase):
         number_samples=50,
         number_chains=1)
 
-    plot.plot_curve_response(media_mix_model=mmm)
+    plot.plot_response_curves(media_mix_model=mmm)
 
     _, call_kwargs = self.mock_sns_lineplot.call_args_list[0]
     self.assertEqual(self.mock_sns_lineplot.call_count, n_channels)
@@ -104,13 +104,33 @@ class PlotTest(parameterized.TestCase):
     means = np.array([4, 5])
     expected_coef_of_variation = std / means
 
-    plot.plot_var_cost(media, costs, names)
-    _, call_kwargs = self.mock_plt_scatter.call_args_list[0]
+    _ = plot.plot_var_cost(media, costs, names)
+    _, call_kwargs = self.mock_ax_scatter.call_args_list[0]
 
     np.testing.assert_array_almost_equal(call_kwargs["x"], costs)
     np.testing.assert_array_almost_equal(call_kwargs["y"],
                                          expected_coef_of_variation)
 
+  @parameterized.named_parameters([
+      dict(testcase_name="3_channels_3_columns", n_channels=3, n_columns=3),
+      dict(testcase_name="3_channels_2_columns", n_channels=3, n_columns=2),
+      dict(testcase_name="4_channels_3_columns", n_channels=4, n_columns=3),
+      dict(testcase_name="4_channels_2_columns", n_channels=4, n_columns=2)
+  ])
+  def test_number_subplots_equals_number_channels(self, n_channels, n_columns):
+    mmm = lightweight_mmm.LightweightMMM()
+    mmm.fit(
+        media=jnp.ones((50, n_channels)),
+        target=jnp.ones(50),
+        costs=jnp.repeat(50, n_channels),
+        number_warmup=50,
+        number_samples=50,
+        number_chains=1)
+
+    fig = plot.plot_media_channel_posteriors(
+        media_mix_model=mmm, n_columns=n_columns)
+
+    self.assertLen(fig.get_axes(), n_channels)
 
 if __name__ == "__main__":
   absltest.main()
