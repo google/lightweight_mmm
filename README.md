@@ -43,10 +43,10 @@ f() is a saturation function and lag() is a lagging function, eg Adstock.
 We have three different versions of the MMM with different lagging and
 saturation and we recommend you compare all three models. The Adstock and carryover
 models have an exponent for diminishing returns. The Hill functions covers that 
-functionality for the Adstock-Hill model.
-- [Adstock](https://en.wikipedia.org/wiki/Advertising_adstock): Applies an infinite lag that decreases its weight as time passes.
-- [Hill-Adstock](https://en.wikipedia.org/wiki/Hill_equation_(biochemistry))-Adstock: Applies a sigmoid like function for diminishing returns to the output of the adstock function.
-- [Carryover](https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/46001.pdf): Applies a causal convolution giving more weight to the near values than distant ones.
+functionality for the Hill-Adstock model.  
+- [Adstock](https://en.wikipedia.org/wiki/Advertising_adstock): Applies an infinite lag that decreases its weight as time passes.  
+- [Hill-Adstock](https://en.wikipedia.org/wiki/Hill_equation_(biochemistry)): Applies a sigmoid like function for diminishing returns to the output of the adstock function.  
+- [Carryover](https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/46001.pdf): Applies a [causal convolution](https://paperswithcode.com/method/causal-convolution) giving more weight to the near values than distant ones.
 
 ## Scaling
 
