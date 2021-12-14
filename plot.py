@@ -104,6 +104,7 @@ def plot_response_curves(
   ax.set_title("Response curves")
   ax.set_ylabel("KPI")
   ax.set_xlabel("Spend per channel")
+  plt.close()
   return fig
 
 
@@ -166,6 +167,7 @@ def plot_var_cost(media: jnp.ndarray, costs: jnp.ndarray,
     ax.annotate(text=label, xy=(x, y))
   ax.set_xlabel("Cost")
   ax.set_ylabel("Coef of Variation")
+  plt.close()
   return fig
 
 
@@ -220,6 +222,7 @@ def plot_model_fit(media_mix_model: lightweight_mmm.LightweightMMM,
   ax.yaxis.grid(color="gray", linestyle="dashed", alpha=0.3)
   ax.xaxis.grid(color="gray", linestyle="dashed", alpha=0.3)
   ax.title.set_text(f"True and predicted KPI.\n R2 = {r2}")
+  plt.close()
   return fig
 
 
@@ -259,6 +262,7 @@ def plot_media_channel_posteriors(
   for index, ax in enumerate(axes.flatten()[n_media_channels:]):
     fig.delaxes(ax)
   fig.tight_layout()
+  plt.close()
   return fig
 
 
@@ -300,6 +304,7 @@ def plot_bars_media_effects(
       fmt="none",
       c="black")
   fig.suptitle(
-      f"Estimated media channel effects, error bars show {lower_quantile} - {upper_quantile} credibility interval"
+      f"Estimated media channel effects, error bars show {np.round(lower_quantile, 2)} - {np.round(upper_quantile, 2)} credibility interval"
   )
+  plt.close()
   return fig
