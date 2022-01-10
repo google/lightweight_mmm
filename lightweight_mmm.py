@@ -1,4 +1,4 @@
-# Copyright 2021 Google LLC.
+# Copyright 2022 Google LLC.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -94,10 +94,10 @@ class LightweightMMM:
     self._fit_rng, self._predict_rng = jax.random.split(self._main_rng)
 
   def fit(self,
-          media: np.ndarray,
-          costs: np.ndarray,
-          target: np.ndarray,
-          extra_features: Optional[np.ndarray] = None,
+          media: jnp.ndarray,
+          costs: jnp.ndarray,
+          target: jnp.ndarray,
+          extra_features: Optional[jnp.ndarray] = None,
           degrees_seasonality: int = 3,
           seasonality_frequency: int = 52,
           media_names: Optional[Sequence[str]] = None,
@@ -135,6 +135,9 @@ class LightweightMMM:
         model=self._model_function,
         target_accept_prob=.85,
         init_strategy=numpyro.infer.init_to_median)
+
+    if extra_features is not None:
+      extra_features = jnp.array(extra_features)
 
     mcmc = numpyro.infer.MCMC(
         sampler=kernel,

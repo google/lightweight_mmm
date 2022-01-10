@@ -1,4 +1,4 @@
-# Copyright 2021 Google LLC.
+# Copyright 2022 Google LLC.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
+from sklearn import metrics
 
 from lightweight_mmm import lightweight_mmm
 from lightweight_mmm import preprocessing
@@ -173,7 +174,8 @@ def plot_var_cost(media: jnp.ndarray, costs: jnp.ndarray,
 
 def plot_model_fit(media_mix_model: lightweight_mmm.LightweightMMM,
                    target_scaler: Optional[jnp.array] = None,
-                   interval_mid_range: float = .9) -> matplotlib.figure.Figure:
+                   interval_mid_range: float = .9,
+                   digits: int = 3) -> matplotlib.figure.Figure:
   """Plots the ground truth, predicted value and interval for the training data.
 
   Model needs to be fit before calling this function to plot.
@@ -185,6 +187,7 @@ def plot_model_fit(media_mix_model: lightweight_mmm.LightweightMMM,
     interval_mid_range: Mid range interval to take for plotting. Eg. .9 will use
       .05 and .95 as the lower and upper quantiles. Must be a float number.
       between 0 and 1.
+    digits: Number of decimals to display on metrics in the plot.
 
   Returns:
     Plot of model fit.
@@ -204,7 +207,9 @@ def plot_model_fit(media_mix_model: lightweight_mmm.LightweightMMM,
   lower_bound = jnp.quantile(a=posterior_pred, q=lower_quantile, axis=0)
 
   r2, _ = arviz.r2_score(y_true=target_train, y_pred=posterior_pred)
-
+  mape = 100 * metrics.mean_absolute_percentage_error(
+      y_true=target_train,
+      y_pred=posterior_pred.mean(axis=0))
   fig, ax = plt.subplots(1, 1)
   ax.plot(jnp.arange(target_train.shape[0]), target_train, c="grey", alpha=.9)
   ax.plot(
@@ -221,7 +226,11 @@ def plot_model_fit(media_mix_model: lightweight_mmm.LightweightMMM,
   ax.legend(["True KPI", "Predicted KPI"])
   ax.yaxis.grid(color="gray", linestyle="dashed", alpha=0.3)
   ax.xaxis.grid(color="gray", linestyle="dashed", alpha=0.3)
-  ax.title.set_text(f"True and predicted KPI.\n R2 = {r2}")
+  title = "\n".join([
+      "True and predicted KPI.",
+      "R2 = {r2:.{digits}f}".format(r2=r2, digits=digits),
+      "MAPE = {mape:.{digits}f}%".format(mape=mape, digits=digits)])
+  ax.title.set_text(title)
   plt.close()
   return fig
 
