@@ -110,9 +110,9 @@ def hill(data: jnp.ndarray, half_max_effective_concentration: jnp.ndarray,
   Returns:
     The hill values for the respective input data.
   """
-
-  hill_values = 1. / (1 + (data / half_max_effective_concentration)**(-slope))
-  return jnp.where(data == 0, jnp.zeros(data.shape), hill_values)
+  save_transform = apply_exponent_safe(
+      data=data / half_max_effective_concentration, exponent=-slope)
+  return 1. / (1 + save_transform)
 
 
 @functools.partial(jax.vmap, in_axes=(1, 1, None))
@@ -159,3 +159,23 @@ def carryover(data: jnp.ndarray,
       data.shape[1]).reshape(number_lags, data.shape[1])
   weights = ad_effect_retention_rate**((lags_arange - peak_effect_delay)**2)
   return jnp.transpose(carryover_convolve(data, weights, number_lags))
+
+
+def apply_exponent_safe(
+    data: jnp.ndarray,
+    exponent: jnp.ndarray
+    ) -> jnp.ndarray:
+  """Applies an eponent to given data in a gradient safe way.
+
+  More info on the double jnp.where can be found:
+  https://github.com/tensorflow/probability/blob/main/discussion/where-nan.pdf
+
+  Args:
+    data: Input data to use.
+    exponent: Exponent required for the operations.
+
+  Returns:
+    The result of the exponent operation with the inputs provided.
+  """
+  exponent_safe = jnp.where(condition=(data == 0), x=1, y=data) ** exponent
+  return jnp.where(condition=(data == 0), x=0, y=exponent_safe)

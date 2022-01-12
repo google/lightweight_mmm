@@ -57,3 +57,4 @@ def load_model(file_path: str) -> lightweight_mmm.LightweightMMM:
       setattr(media_mix_model, attr, jnp.array(attr_value))
 
   return media_mix_model
+

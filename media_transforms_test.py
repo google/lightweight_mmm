@@ -16,6 +16,8 @@
 
 from absl.testing import absltest
 from absl.testing import parameterized
+import jax
+import jax.numpy as jnp
 import numpy as np
 
 from lightweight_mmm import media_transforms
@@ -117,6 +119,34 @@ class MediaTransformsTest(parameterized.TestCase):
 
     self.assertEqual(generated_output.shape, data.shape)
 
+  def test_apply_exponent_safe_produces_correct_shape(self):
+    data = jnp.arange(50).reshape((10, 5))
+    exponent = jnp.full(5, 0.5)
+
+    output = media_transforms.apply_exponent_safe(data=data, exponent=exponent)
+
+    np.testing.assert_array_equal(x=output, y=data**exponent)
+
+  def test_apply_exponent_safe_produces_same_exponent_results(self):
+    data = jnp.ones((10, 5))
+    exponent = jnp.full(5, 0.5)
+
+    output = media_transforms.apply_exponent_safe(data=data, exponent=exponent)
+
+    self.assertEqual(output.shape, data.shape)
+
+  def test_apply_exponent_safe_produces_non_nan_or_inf_grads(self):
+    def f_safe(data, exponent):
+      x = media_transforms.apply_exponent_safe(data=data, exponent=exponent)
+      return x.sum()
+    data = jnp.ones((10, 5))
+    data = data.at[0, 0].set(0.)
+    exponent = jnp.full(5, 0.5)
+
+    grads = jax.grad(f_safe)(data, exponent)
+
+    self.assertFalse(np.isnan(grads).any())
+    self.assertFalse(np.isinf(grads).any())
 
 if __name__ == "__main__":
   absltest.main()

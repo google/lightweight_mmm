@@ -49,8 +49,10 @@ def transform_adstock(media_data: jnp.ndarray,
   with numpyro.plate("exponent_plate", media_data.shape[1]):
     exponent = numpyro.sample("exponent",
                               dist.Beta(concentration1=9., concentration0=1.))
-  return media_transforms.adstock(
-      data=media_data, lag_weight=lag_weight, normalise=normalise)**exponent
+  adstock = media_transforms.adstock(
+      data=media_data, lag_weight=lag_weight, normalise=normalise)
+
+  return media_transforms.apply_exponent_safe(data=adstock, exponent=exponent)
 
 
 def transform_hill_adstock(media_data: jnp.ndarray,
@@ -106,11 +108,14 @@ def transform_carryover(media_data: jnp.ndarray,
   with numpyro.plate("exponent_plate", media_data.shape[1]):
     exponent = numpyro.sample("exponent",
                               dist.Beta(concentration1=9., concentration0=1.))
-  return media_transforms.carryover(
+
+  carryover = media_transforms.carryover(
       data=media_data,
       ad_effect_retention_rate=ad_effect_retention_rate,
       peak_effect_delay=peak_effect_delay,
-      number_lags=number_lags)**exponent
+      number_lags=number_lags)
+
+  return media_transforms.apply_exponent_safe(data=carryover, exponent=exponent)
 
 
 def media_mix_model(media_data: jnp.ndarray,
