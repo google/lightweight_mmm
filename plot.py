@@ -54,6 +54,7 @@ def _make_single_prediction(media_mix_model: lightweight_mmm.LightweightMMM,
 def plot_response_curves(
     media_mix_model: lightweight_mmm.LightweightMMM,
     target_scaler: Optional[preprocessing.CustomScaler] = None,
+    prices: jnp.ndarray = None,
     steps: int = 100,
     percentage_add: float = 0.1) -> matplotlib.figure.Figure:
   """Plots the response curves of each media channel based on the model.
@@ -62,6 +63,10 @@ def plot_response_curves(
     media_mix_model: Media mix model to use for plotting the response curves.
     target_scaler: Scaler used for scaling the target, to unscaled values and
       plot in the original scale.
+    prices: Prices to translate the media units to spend. If all your data is
+      already in spend numbers you can leave this as None. If some of your data
+      is media spend and others is media unit, leave the media spend with price
+      1 and add the price to the media unit channels.
     steps: Number of steps to simulate.
     percentage_add: Percentage too exceed the maximum historic spend for the
       simulation of the response curve.
@@ -73,7 +78,10 @@ def plot_response_curves(
     raise lightweight_mmm.NotFittedModelError(
         "Model needs to be fit first before attempting to plot its response "
         "curves.")
-  media_maxes = media_mix_model.media.max(axis=0) * (1 + percentage_add)
+  media = media_mix_model.media
+  if prices is not None:
+    media *= prices
+  media_maxes = media.max(axis=0) * (1 + percentage_add)
   if media_mix_model._extra_features is not None:
     extra_features = jnp.expand_dims(
         media_mix_model._extra_features.mean(axis=0), axis=0)
@@ -90,9 +98,12 @@ def plot_response_curves(
       axis=0).reshape(media_mix_model.n_media_channels, steps,
                       media_mix_model.n_media_channels)
 
+  prediction_offset = media_mix_model.predict(jnp.zeros((1, *media.shape[1:])))
   mock_media = media_ranges * diagonal
-  predictions = make_predictions(media_mix_model, mock_media, extra_features)
-  predictions = jnp.transpose(jnp.squeeze(a=predictions))
+  predictions = jnp.squeeze(a=make_predictions(media_mix_model,
+                                               mock_media,
+                                               extra_features))
+  predictions = jnp.transpose(predictions) - prediction_offset.mean(axis=0)
   if target_scaler:
     predictions = target_scaler.inverse_transform(predictions)
 

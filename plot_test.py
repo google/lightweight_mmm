@@ -45,8 +45,8 @@ class PlotTest(parameterized.TestCase):
         media=jnp.ones((50, 3)),
         target=target,
         costs=jnp.repeat(50, 3),
-        number_warmup=50,
-        number_samples=50,
+        number_warmup=5,
+        number_samples=5,
         number_chains=1)
 
     plot.plot_model_fit(media_mix_model=mmm, target_scaler=target_scaler)
@@ -59,28 +59,24 @@ class PlotTest(parameterized.TestCase):
         media=jnp.ones((50, 3)),
         target=jnp.ones(50),
         costs=jnp.repeat(50, 3),
-        number_warmup=50,
-        number_samples=50,
+        number_warmup=5,
+        number_samples=5,
         number_chains=1)
 
     plot.plot_model_fit(media_mix_model=mmm)
 
     self.assertTrue(self.mock_plt_plot.called)
 
-  @parameterized.named_parameters([
-      dict(testcase_name="five_channels", n_channels=5),
-      dict(testcase_name="three_channel", n_channels=3),
-      dict(testcase_name="ten_channels", n_channels=10),
-  ])
   def test_plot_response_curves_plots_n_times_with_correct_params(
-      self, n_channels):
+      self):
+    n_channels = 5
     mmm = lightweight_mmm.LightweightMMM()
     mmm.fit(
         media=jnp.ones((50, n_channels)),
         target=jnp.ones(50),
         costs=jnp.repeat(50, n_channels),
-        number_warmup=50,
-        number_samples=50,
+        number_warmup=5,
+        number_samples=5,
         number_chains=1)
 
     plot.plot_response_curves(media_mix_model=mmm)
@@ -89,19 +85,58 @@ class PlotTest(parameterized.TestCase):
     self.assertEqual(self.mock_sns_lineplot.call_count, n_channels)
     self.assertEqual(call_kwargs["x"].max(), 1.1)
 
+  def test_plot_response_curves_with_prices_plots_n_times_with_correct_params(
+      self):
+    n_channels = 5
+    prices = jnp.array([1., 0.5, 2., 3., 1.])
+    expected_maxes = [1.1, 0.55, 2.2, 3.3, 1.1]
+    mmm = lightweight_mmm.LightweightMMM()
+    mmm.fit(
+        media=jnp.ones((50, n_channels)),
+        target=jnp.ones(50),
+        costs=jnp.repeat(50, n_channels),
+        number_warmup=5,
+        number_samples=5,
+        number_chains=1)
+
+    plot.plot_response_curves(media_mix_model=mmm, prices=prices)
+
+    calls_list = self.mock_sns_lineplot.call_args_list
+    self.assertEqual(self.mock_sns_lineplot.call_count, n_channels)
+    for (_, call_kwargs), expected_max in zip(calls_list, expected_maxes):
+      self.assertAlmostEqual(call_kwargs["x"].max().item(),
+                             expected_max,
+                             places=4)
+
+  def test_plot_response_curves_produces_y_axis_starting_at_zero(self):
+    mmm = lightweight_mmm.LightweightMMM()
+    mmm.fit(
+        media=jnp.ones((50, 3)),
+        target=jnp.ones(50),
+        costs=jnp.repeat(50, 3),
+        number_warmup=5,
+        number_samples=5,
+        number_chains=1)
+
+    plot.plot_response_curves(media_mix_model=mmm)
+
+    calls_list = self.mock_sns_lineplot.call_args_list
+    for _, call_kwargs in calls_list:
+      self.assertEqual(call_kwargs["y"].min().item(), 0)
+
   def test_perfect_correlation_returns_correct_output(self):
-    x = np.arange(100)
-    y = np.arange(100, 200)
+    x = jnp.arange(100)
+    y = jnp.arange(100, 200)
     idx, maxcorr = plot.plot_cross_correlate(x, y)
     self.assertEqual(idx, 0)
     self.assertEqual(maxcorr, 1)
 
   def test_var_cost_plot_called_with_correct_kwargs(self):
-    media = np.arange(10).reshape((5, 2))
+    media = jnp.arange(10).reshape((5, 2))
     costs = [1, 2]
     names = ["a", "b"]
-    std = np.repeat(2.82842712, 2)
-    means = np.array([4, 5])
+    std = jnp.repeat(2.82842712, 2)
+    means = jnp.array([4, 5])
     expected_coef_of_variation = std / means
 
     _ = plot.plot_var_cost(media, costs, names)
@@ -111,20 +146,16 @@ class PlotTest(parameterized.TestCase):
     np.testing.assert_array_almost_equal(call_kwargs["y"],
                                          expected_coef_of_variation)
 
-  @parameterized.named_parameters([
-      dict(testcase_name="3_channels_3_columns", n_channels=3, n_columns=3),
-      dict(testcase_name="3_channels_2_columns", n_channels=3, n_columns=2),
-      dict(testcase_name="4_channels_3_columns", n_channels=4, n_columns=3),
-      dict(testcase_name="4_channels_2_columns", n_channels=4, n_columns=2)
-  ])
-  def test_number_subplots_equals_number_channels(self, n_channels, n_columns):
+  def test_number_subplots_equals_number_channels(self):
+    n_channels = 4
+    n_columns = 3
     mmm = lightweight_mmm.LightweightMMM()
     mmm.fit(
         media=jnp.ones((50, n_channels)),
         target=jnp.ones(50),
         costs=jnp.repeat(50, n_channels),
-        number_warmup=50,
-        number_samples=50,
+        number_warmup=5,
+        number_samples=5,
         number_chains=1)
 
     fig = plot.plot_media_channel_posteriors(
