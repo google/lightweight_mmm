@@ -59,6 +59,8 @@ def plot_response_curves(
     percentage_add: float = 0.1) -> matplotlib.figure.Figure:
   """Plots the response curves of each media channel based on the model.
 
+  It also plots the marginal ROI curve.
+
   Args:
     media_mix_model: Media mix model to use for plotting the response curves.
     target_scaler: Scaler used for scaling the target, to unscaled values and
@@ -107,15 +109,31 @@ def plot_response_curves(
   if target_scaler:
     predictions = target_scaler.inverse_transform(predictions)
 
-  fig, ax = plt.subplots(1, 1)
+  # delta kpi / delta spend.
+  marginal = jnp.diff(predictions, axis=0) / jnp.diff(jnp.squeeze(
+      media_ranges), axis=0)
+
+  # Two charts: top response curve, bottom marginal.
+  fig = plt.figure(tight_layout=True)
+  ax1 = plt.subplot(2, 1, 1)
+  ax2 = plt.subplot(2, 1, 2)
+  plt.axes(ax1)
   for i in range(media_ranges.shape[2]):
-    ax = sns.lineplot(
+    sns.lineplot(
         x=jnp.squeeze(media_ranges)[:, i],
         y=predictions[:, i],
         label=media_mix_model.media_names[i])
-  ax.set_title("Response curves")
-  ax.set_ylabel("KPI")
-  ax.set_xlabel("Spend per channel")
+  plt.title("Response curves")
+  plt.ylabel("KPI")
+  plt.axes(ax2)
+  for i in range(media_ranges.shape[2]):
+    sns.lineplot(
+        x=jnp.squeeze(media_ranges)[1:, i],
+        y=marginal[:, i],
+        label=media_mix_model.media_names[i])
+  plt.title("mROI")
+  plt.xlabel("Spend per channel")
+  plt.ylabel("KPI")
   plt.close()
   return fig
 

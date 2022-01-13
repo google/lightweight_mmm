@@ -82,7 +82,8 @@ class PlotTest(parameterized.TestCase):
     plot.plot_response_curves(media_mix_model=mmm)
 
     _, call_kwargs = self.mock_sns_lineplot.call_args_list[0]
-    self.assertEqual(self.mock_sns_lineplot.call_count, n_channels)
+    # n channels times 2 charts.
+    self.assertEqual(self.mock_sns_lineplot.call_count, 2 * n_channels)
     self.assertEqual(call_kwargs["x"].max(), 1.1)
 
   def test_plot_response_curves_with_prices_plots_n_times_with_correct_params(
@@ -102,7 +103,7 @@ class PlotTest(parameterized.TestCase):
     plot.plot_response_curves(media_mix_model=mmm, prices=prices)
 
     calls_list = self.mock_sns_lineplot.call_args_list
-    self.assertEqual(self.mock_sns_lineplot.call_count, n_channels)
+    self.assertEqual(self.mock_sns_lineplot.call_count, n_channels * 2)
     for (_, call_kwargs), expected_max in zip(calls_list, expected_maxes):
       self.assertAlmostEqual(call_kwargs["x"].max().item(),
                              expected_max,
@@ -121,7 +122,7 @@ class PlotTest(parameterized.TestCase):
     plot.plot_response_curves(media_mix_model=mmm)
 
     calls_list = self.mock_sns_lineplot.call_args_list
-    for _, call_kwargs in calls_list:
+    for _, call_kwargs in calls_list[:3]:
       self.assertEqual(call_kwargs["y"].min().item(), 0)
 
   def test_perfect_correlation_returns_correct_output(self):
