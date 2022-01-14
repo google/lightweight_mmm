@@ -289,7 +289,7 @@ def plot_media_channel_posteriors(
   n_rows = (n_media_channels + n_columns - 1) // n_columns
 
   media_channel_posteriors = media_mix_model.trace["beta_media"]
-  if not channel_names:
+  if channel_names is None:
     channel_names = np.arange(np.shape(media_channel_posteriors)[1])
   fig, axes = plt.subplots(n_rows, n_columns, figsize=(10, 10))
   for index, ax in enumerate(axes.flatten()[:n_media_channels]):
@@ -306,7 +306,7 @@ def plot_media_channel_posteriors(
 
 def plot_bars_media_effects(
     effect: jnp.ndarray,
-    channel_names: Optional[Sequence[Any]] = None,
+    channel_names: Optional[Tuple[Any]] = None,
     interval_mid_range: float = .9
     ) -> matplotlib.figure.Figure:
   """Plots a barchart of estimated media effects with their percentile interval.
@@ -323,7 +323,7 @@ def plot_bars_media_effects(
   Returns:
     Barplot of estimated media effects with defined percentile-bars.
   """
-  if not channel_names:
+  if channel_names is None:
     channel_names = np.arange(np.shape(effect)[1])
   upper_quantile = 1 - (1 - interval_mid_range) / 2
   lower_quantile = (1 - interval_mid_range) / 2
@@ -341,6 +341,7 @@ def plot_bars_media_effects(
       yerr=quantile_bounds,
       fmt="none",
       c="black")
+  ax.set_xticks(range(len(channel_names)), labels=channel_names, rotation=45)
   fig.suptitle(
       f"Estimated media channel effects, error bars show {np.round(lower_quantile, 2)} - {np.round(upper_quantile, 2)} credibility interval"
   )
