@@ -81,8 +81,6 @@ def plot_response_curves(
         "Model needs to be fit first before attempting to plot its response "
         "curves.")
   media = media_mix_model.media
-  if prices is not None:
-    media *= prices
   media_maxes = media.max(axis=0) * (1 + percentage_add)
   if media_mix_model._extra_features is not None:
     extra_features = jnp.expand_dims(
@@ -109,6 +107,8 @@ def plot_response_curves(
   if target_scaler:
     predictions = target_scaler.inverse_transform(predictions)
 
+  if prices is not None:
+    media_ranges *= prices
   # delta kpi / delta spend.
   marginal = jnp.diff(predictions, axis=0) / jnp.diff(jnp.squeeze(
       media_ranges), axis=0)
