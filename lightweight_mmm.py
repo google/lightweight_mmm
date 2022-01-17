@@ -36,7 +36,7 @@ mmm.predict(media=media_data_test, extra_features=extra_features_test)
 import dataclasses
 import functools
 import logging
-from typing import Any, Callable, Dict, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple
 
 import frozendict
 import jax
@@ -93,17 +93,22 @@ class LightweightMMM:
     self._main_rng = jax.random.PRNGKey(self.seed)
     self._fit_rng, self._predict_rng = jax.random.split(self._main_rng)
 
-  def fit(self,
-          media: jnp.ndarray,
-          costs: jnp.ndarray,
-          target: jnp.ndarray,
-          extra_features: Optional[jnp.ndarray] = None,
-          degrees_seasonality: int = 3,
-          seasonality_frequency: int = 52,
-          media_names: Optional[Sequence[str]] = None,
-          number_warmup: int = 1000,
-          number_samples: int = 1000,
-          number_chains: int = 2) -> None:
+  def fit(
+      self,
+      media: jnp.ndarray,
+      costs: jnp.ndarray,
+      target: jnp.ndarray,
+      extra_features: Optional[jnp.ndarray] = None,
+      degrees_seasonality: int = 3,
+      seasonality_frequency: int = 52,
+      media_names: Optional[Sequence[str]] = None,
+      number_warmup: int = 1000,
+      number_samples: int = 1000,
+      number_chains: int = 2,
+      target_accept_prob: float = .85,
+      init_strategy: Callable[[Mapping[Any, Any], Any],
+                              jnp.ndarray] = numpyro.infer.init_to_median
+      ) -> None:
     """Fits MMM given the media data, extra features, costs and sales/KPI.
 
     For detailed information on the selected model please refer to its
@@ -123,6 +128,12 @@ class LightweightMMM:
       number_warmup: Number of warm up samples. Default is 1000.
       number_samples: Number of samples during sampling. Default is 1000.
       number_chains: Number of chains to sample. Default is 2.
+      target_accept_prob: Target acceptance probability for step size in the
+        NUTS sampler. Default is .85.
+      init_strategy: Initialization function for numpyro NUTS. The available
+        options can be found in
+        https://num.pyro.ai/en/stable/utilities.html#initialization-strategies.
+        Default is numpyro.infer.init_to_median.
     """
     if media.shape[1] != len(costs):
       raise ValueError("The number of data channels provided must match the "
@@ -133,8 +144,8 @@ class LightweightMMM:
     train_media_size = media.shape[0]
     kernel = numpyro.infer.NUTS(
         model=self._model_function,
-        target_accept_prob=.85,
-        init_strategy=numpyro.infer.init_to_median)
+        target_accept_prob=target_accept_prob,
+        init_strategy=init_strategy)
 
     if extra_features is not None:
       extra_features = jnp.array(extra_features)
