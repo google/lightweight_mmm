@@ -14,6 +14,7 @@
 
 """Plotting functions pre and post model fitting."""
 
+import functools
 from typing import Any, List, Optional, Sequence, Tuple
 
 import arviz
@@ -29,6 +30,7 @@ from lightweight_mmm import lightweight_mmm
 from lightweight_mmm import preprocessing
 
 
+@functools.partial(jax.jit, static_argnames=("media_mix_model"))
 def _make_single_prediction(media_mix_model: lightweight_mmm.LightweightMMM,
                             mock_media: jnp.array,
                             extra_features: Optional[jnp.array]) -> jnp.array:
@@ -100,6 +102,7 @@ def plot_response_curves(
 
   prediction_offset = media_mix_model.predict(jnp.zeros((1, *media.shape[1:])))
   mock_media = media_ranges * diagonal
+  print(mock_media.shape)
   predictions = jnp.squeeze(a=make_predictions(media_mix_model,
                                                mock_media,
                                                extra_features))
