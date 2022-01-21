@@ -18,17 +18,17 @@ from setuptools import find_packages
 from setuptools import setup
 
 install_requires = [
-    "absl",
+    "absl-py",
     "arviz",
     "dataclasses;python_version<'3.7'",
     "frozendict",
     "jax>=0.2.21",
-    "matplotlib",
+    "matplotlib==3.3.4",
     "numpy>=1.12",
     "numpyro>=0.8.0",
     "scipy",
     "seaborn",
-    "sklearn>=0.24.0",
+    "sklearn",
     "tensorflow==2.4.1"
 ]
 

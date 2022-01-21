@@ -57,7 +57,7 @@ def plot_response_curves(
     media_mix_model: lightweight_mmm.LightweightMMM,
     target_scaler: Optional[preprocessing.CustomScaler] = None,
     prices: jnp.ndarray = None,
-    steps: int = 100,
+    steps: int = 50,
     percentage_add: float = 0.1) -> matplotlib.figure.Figure:
   """Plots the response curves of each media channel based on the model.
 
@@ -102,7 +102,6 @@ def plot_response_curves(
 
   prediction_offset = media_mix_model.predict(jnp.zeros((1, *media.shape[1:])))
   mock_media = media_ranges * diagonal
-  print(mock_media.shape)
   predictions = jnp.squeeze(a=make_predictions(media_mix_model,
                                                mock_media,
                                                extra_features))
