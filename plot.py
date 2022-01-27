@@ -393,7 +393,8 @@ def plot_bars_media_metrics(
       yerr=quantile_bounds,
       fmt="none",
       c="black")
-  ax.set_xticks(range(len(channel_names)), labels=channel_names, rotation=45)
+  ax.set_xticks(range(len(channel_names)))
+  ax.set_xticklabels(channel_names, rotation=45)
   fig.suptitle(
       f"Estimated media channel {metric_name}, error bars show {np.round(lower_quantile, 2)} - {np.round(upper_quantile, 2)} credibility interval"
   )
