@@ -57,7 +57,7 @@ def plot_response_curves(
     media_mix_model: lightweight_mmm.LightweightMMM,
     target_scaler: Optional[preprocessing.CustomScaler] = None,
     prices: jnp.ndarray = None,
-    steps: int = 50,
+    steps: int = 100,
     percentage_add: float = 0.1) -> matplotlib.figure.Figure:
   """Plots the response curves of each media channel based on the model.
 
@@ -102,9 +102,8 @@ def plot_response_curves(
 
   prediction_offset = media_mix_model.predict(jnp.zeros((1, *media.shape[1:])))
   mock_media = media_ranges * diagonal
-  predictions = jnp.squeeze(a=make_predictions(media_mix_model,
-                                               mock_media,
-                                               extra_features))
+  predictions = jnp.squeeze(
+      a=make_predictions(media_mix_model, mock_media, extra_features))
   predictions = jnp.transpose(predictions) - prediction_offset.mean(axis=0)
   if target_scaler:
     predictions = target_scaler.inverse_transform(predictions)
@@ -112,8 +111,9 @@ def plot_response_curves(
   if prices is not None:
     media_ranges *= prices
   # delta kpi / delta spend.
-  marginal = jnp.diff(predictions, axis=0) / jnp.diff(jnp.squeeze(
-      media_ranges), axis=0)
+  marginal = jnp.diff(
+      predictions, axis=0) / jnp.diff(
+          jnp.squeeze(media_ranges), axis=0)
 
   # Two charts: top response curve, bottom marginal.
   fig = plt.figure(tight_layout=True)
@@ -127,12 +127,14 @@ def plot_response_curves(
         label=media_mix_model.media_names[i])
   plt.title("Response curves")
   plt.ylabel("KPI")
+  plt.legend(bbox_to_anchor=(1, 1))
+
   plt.axes(ax2)
   for i in range(media_ranges.shape[2]):
     sns.lineplot(
         x=jnp.squeeze(media_ranges)[1:, i],
         y=marginal[:, i],
-        label=media_mix_model.media_names[i])
+    )
   plt.title("mROI")
   plt.xlabel("Spend per channel")
   plt.ylabel("KPI")
@@ -203,6 +205,60 @@ def plot_var_cost(media: jnp.ndarray, costs: jnp.ndarray,
   return fig
 
 
+def _create_shaded_line_plot(prediction: jnp.array,
+                             true_values: jnp.array,
+                             interval_mid_range: float = .9,
+                             digits: int = 3) -> matplotlib.figure.Figure:
+  """Creates a plot of ground truth, predicted value and credibility interval.
+
+  Args:
+    prediction: 2d array of predicted values.
+    true_values: Array of true values. Must be same length as prediction.
+    interval_mid_range: Mid range interval to take for plotting. Eg. .9 will use
+      .05 and .95 as the lower and upper quantiles. Must be a float number
+      between 0 and 1.
+    digits: Number of decimals to display on metrics in the plot.
+
+  Returns:
+      Plot of model fit.
+  """
+  if prediction.shape[1] != len(true_values):
+    raise ValueError(
+        "Predicted data and ground-truth data must have same length.")
+  upper_quantile = 1 - (1 - interval_mid_range) / 2
+  lower_quantile = (1 - interval_mid_range) / 2
+  upper_bound = jnp.quantile(a=prediction, q=upper_quantile, axis=0)
+  lower_bound = jnp.quantile(a=prediction, q=lower_quantile, axis=0)
+
+  r2, _ = arviz.r2_score(y_true=true_values, y_pred=prediction)
+  mape = 100 * metrics.mean_absolute_percentage_error(
+      y_true=true_values, y_pred=prediction.mean(axis=0))
+  fig, ax = plt.subplots(1, 1)
+  ax.plot(jnp.arange(true_values.shape[0]), true_values, c="grey", alpha=.9)
+  ax.plot(
+      jnp.arange(true_values.shape[0]),
+      prediction.mean(axis=0),
+      c="green",
+      alpha=.9)
+  ax.fill_between(
+      x=jnp.arange(true_values.shape[0]),
+      y1=lower_bound,
+      y2=upper_bound,
+      alpha=.35,
+      color="green")
+  ax.legend(["True KPI", "Predicted KPI"])
+  ax.yaxis.grid(color="gray", linestyle="dashed", alpha=0.3)
+  ax.xaxis.grid(color="gray", linestyle="dashed", alpha=0.3)
+  title = "\n".join([
+      "True and predicted KPI.",
+      "R2 = {r2:.{digits}f}".format(r2=r2, digits=digits),
+      "MAPE = {mape:.{digits}f}%".format(mape=mape, digits=digits)
+  ])
+  ax.title.set_text(title)
+  plt.close()
+  return fig
+
+
 def plot_model_fit(media_mix_model: lightweight_mmm.LightweightMMM,
                    target_scaler: Optional[jnp.array] = None,
                    interval_mid_range: float = .9,
@@ -231,39 +287,32 @@ def plot_model_fit(media_mix_model: lightweight_mmm.LightweightMMM,
   if target_scaler:
     posterior_pred = target_scaler.inverse_transform(posterior_pred)
     target_train = target_scaler.inverse_transform(target_train)
+  return _create_shaded_line_plot(posterior_pred, target_train,
+                                  interval_mid_range, digits)
 
-  upper_quantile = 1 - (1 - interval_mid_range) / 2
-  lower_quantile = (1 - interval_mid_range) / 2
-  upper_bound = jnp.quantile(a=posterior_pred, q=upper_quantile, axis=0)
-  lower_bound = jnp.quantile(a=posterior_pred, q=lower_quantile, axis=0)
 
-  r2, _ = arviz.r2_score(y_true=target_train, y_pred=posterior_pred)
-  mape = 100 * metrics.mean_absolute_percentage_error(
-      y_true=target_train,
-      y_pred=posterior_pred.mean(axis=0))
-  fig, ax = plt.subplots(1, 1)
-  ax.plot(jnp.arange(target_train.shape[0]), target_train, c="grey", alpha=.9)
-  ax.plot(
-      jnp.arange(target_train.shape[0]),
-      posterior_pred.mean(axis=0),
-      c="green",
-      alpha=.9)
-  ax.fill_between(
-      x=jnp.arange(target_train.shape[0]),
-      y1=lower_bound,
-      y2=upper_bound,
-      alpha=.35,
-      color="green")
-  ax.legend(["True KPI", "Predicted KPI"])
-  ax.yaxis.grid(color="gray", linestyle="dashed", alpha=0.3)
-  ax.xaxis.grid(color="gray", linestyle="dashed", alpha=0.3)
-  title = "\n".join([
-      "True and predicted KPI.",
-      "R2 = {r2:.{digits}f}".format(r2=r2, digits=digits),
-      "MAPE = {mape:.{digits}f}%".format(mape=mape, digits=digits)])
-  ax.title.set_text(title)
-  plt.close()
-  return fig
+def plot_out_of_sample_model_fit(out_of_sample_predictions: jnp.array,
+                                 out_of_sample_target: jnp.array,
+                                 interval_mid_range: float = .9,
+                                 digits: int = 3) -> matplotlib.figure.Figure:
+  """Plots the ground truth, predicted value and interval for the test data.
+
+  Args:
+    out_of_sample_predictions: Predictions for the out-of-sample period, as
+      derived from mmm.predict.
+    out_of_sample_target: Target for the out-of-sample period. Needs to be on
+      the same scale as out_of_sample_predictions.
+    interval_mid_range: Mid range interval to take for plotting. Eg. .9 will use
+      .05 and .95 as the lower and upper quantiles. Must be a float number.
+      between 0 and 1.
+    digits: Number of decimals to display on metrics in the plot.
+
+  Returns:
+    Plot of model fit.
+  """
+  return _create_shaded_line_plot(out_of_sample_predictions,
+                                  out_of_sample_target, interval_mid_range,
+                                  digits)
 
 
 def plot_media_channel_posteriors(
@@ -306,18 +355,19 @@ def plot_media_channel_posteriors(
   return fig
 
 
-def plot_bars_media_effects(
-    effect: jnp.ndarray,
+def plot_bars_media_metrics(
+    metric: jnp.ndarray,
+    metric_name: str = "metric",
     channel_names: Optional[Tuple[Any]] = None,
-    interval_mid_range: float = .9
-    ) -> matplotlib.figure.Figure:
+    interval_mid_range: float = .9) -> matplotlib.figure.Figure:
   """Plots a barchart of estimated media effects with their percentile interval.
 
   The lower and upper percentile need to be between 0-1.
 
   Args:
-    effect: Estimated media effects as returned by
-      lightweight_mmm.get_posterior_metrics()
+    metric: Estimated media metric as returned by
+      lightweight_mmm.get_posterior_metrics(). Can be either effects or ROI.
+    metric_name: Name of the media metric, e.g. effect or ROI.
     channel_names: Names of media channels to be added to plot.
     interval_mid_range: Mid range interval to take for plotting. Eg. .9 will use
       .05 and .95 as the lower and upper quantiles. Must be a float number.
@@ -326,26 +376,26 @@ def plot_bars_media_effects(
     Barplot of estimated media effects with defined percentile-bars.
   """
   if channel_names is None:
-    channel_names = np.arange(np.shape(effect)[1])
+    channel_names = np.arange(np.shape(metric)[1])
   upper_quantile = 1 - (1 - interval_mid_range) / 2
   lower_quantile = (1 - interval_mid_range) / 2
 
   fig, ax = plt.subplots(1, 1)
-  sns.barplot(data=effect, ci=None, ax=ax)
+  sns.barplot(data=metric, ci=None, ax=ax)
   quantile_bounds = np.quantile(
-      effect, q=[lower_quantile, upper_quantile], axis=0)
-  quantile_bounds[0] = effect.mean(axis=0) - quantile_bounds[0]
-  quantile_bounds[1] = quantile_bounds[1] - effect.mean(axis=0)
+      metric, q=[lower_quantile, upper_quantile], axis=0)
+  quantile_bounds[0] = metric.mean(axis=0) - quantile_bounds[0]
+  quantile_bounds[1] = quantile_bounds[1] - metric.mean(axis=0)
 
   ax.errorbar(
-      x=np.arange(np.shape(effect)[1]),
-      y=effect.mean(axis=0),
+      x=np.arange(np.shape(metric)[1]),
+      y=metric.mean(axis=0),
       yerr=quantile_bounds,
       fmt="none",
       c="black")
   ax.set_xticks(range(len(channel_names)), labels=channel_names, rotation=45)
   fig.suptitle(
-      f"Estimated media channel effects, error bars show {np.round(lower_quantile, 2)} - {np.round(upper_quantile, 2)} credibility interval"
+      f"Estimated media channel {metric_name}, error bars show {np.round(lower_quantile, 2)} - {np.round(upper_quantile, 2)} credibility interval"
   )
   plt.close()
   return fig

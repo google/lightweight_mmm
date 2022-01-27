@@ -34,7 +34,7 @@ class UtilsTest(absltest.TestCase):
     mmm_object.fit(
         media=media,
         extra_features=extra_features,
-        costs=costs,
+        total_costs=costs,
         target=target,
         number_warmup=10,
         number_samples=100,
@@ -55,7 +55,7 @@ class UtilsTest(absltest.TestCase):
     mmm_object.fit(
         media=media,
         extra_features=extra_features,
-        costs=costs,
+        total_costs=costs,
         target=target,
         number_warmup=10,
         number_samples=100,

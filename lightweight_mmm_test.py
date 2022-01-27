@@ -68,7 +68,7 @@ class LightweightMmmTest(parameterized.TestCase):
       mmm_object.fit(
           media=media,
           extra_features=extra_features,
-          costs=costs,
+          total_costs=costs,
           target=target,
           number_warmup=5,
           number_samples=5,
@@ -79,7 +79,7 @@ class LightweightMmmTest(parameterized.TestCase):
     extra_features = jnp.arange(40).reshape((20, 2))
     costs = jnp.arange(1, 4)
     target = jnp.arange(1, 21)
-    expected_attributes = ("n_media_channels", "_costs", "trace",
+    expected_attributes = ("n_media_channels", "_total_costs", "trace",
                            "_number_warmup", "_number_samples",
                            "_number_chains", "_target", "_train_media_size",
                            "_degrees_seasonality", "_seasonality_frequency",
@@ -89,7 +89,7 @@ class LightweightMmmTest(parameterized.TestCase):
     mmm_object.fit(
         media=media,
         extra_features=extra_features,
-        costs=costs,
+        total_costs=costs,
         target=target,
         number_warmup=5,
         number_samples=5,
@@ -100,7 +100,7 @@ class LightweightMmmTest(parameterized.TestCase):
   # TODO(): Add testing for more scaled/unscaled options.
   def test_get_posterior_metrics_produces_without_scaling_expected_output(self):
     mmm_object = lightweight_mmm.LightweightMMM()
-    mmm_object._costs = jnp.array([2., 1., 3.]) * 15
+    mmm_object._total_costs = jnp.array([2., 1., 3.]) * 15
     mmm_object._target = jnp.ones((140, 1)) * 5
     mmm_object.trace = {
         "media_transformed": jnp.ones((500, 140, 3)) * jnp.arange(1, 4),
@@ -122,7 +122,7 @@ class LightweightMmmTest(parameterized.TestCase):
     mmm_object.fit(
         media=media,
         extra_features=extra_features,
-        costs=costs,
+        total_costs=costs,
         target=target,
         number_warmup=5,
         number_samples=5,
@@ -141,7 +141,7 @@ class LightweightMmmTest(parameterized.TestCase):
     mmm_object.fit(
         media=media,
         extra_features=extra_features,
-        costs=costs,
+        total_costs=costs,
         target=target,
         number_warmup=5,
         number_samples=5,
@@ -163,7 +163,7 @@ class LightweightMmmTest(parameterized.TestCase):
     mmm_object.fit(
         media=media,
         extra_features=extra_features,
-        costs=costs,
+        total_costs=costs,
         target=target,
         number_warmup=10,
         number_samples=100,
@@ -180,7 +180,7 @@ class LightweightMmmTest(parameterized.TestCase):
     mmm_object.fit(
         media=media,
         extra_features=extra_features,
-        costs=costs,
+        total_costs=costs,
         target=target,
         number_warmup=10,
         number_samples=100,

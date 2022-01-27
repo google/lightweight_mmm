@@ -44,7 +44,7 @@ class PlotTest(parameterized.TestCase):
     mmm.fit(
         media=jnp.ones((50, 3)),
         target=target,
-        costs=jnp.repeat(50, 3),
+        total_costs=jnp.repeat(50, 3),
         number_warmup=5,
         number_samples=5,
         number_chains=1)
@@ -58,7 +58,7 @@ class PlotTest(parameterized.TestCase):
     mmm.fit(
         media=jnp.ones((50, 3)),
         target=jnp.ones(50),
-        costs=jnp.repeat(50, 3),
+        total_costs=jnp.repeat(50, 3),
         number_warmup=5,
         number_samples=5,
         number_chains=1)
@@ -74,7 +74,7 @@ class PlotTest(parameterized.TestCase):
     mmm.fit(
         media=jnp.ones((50, n_channels)),
         target=jnp.ones(50),
-        costs=jnp.repeat(50, n_channels),
+        total_costs=jnp.repeat(50, n_channels),
         number_warmup=5,
         number_samples=5,
         number_chains=1)
@@ -95,7 +95,7 @@ class PlotTest(parameterized.TestCase):
     mmm.fit(
         media=jnp.ones((50, n_channels)),
         target=jnp.ones(50),
-        costs=jnp.repeat(50, n_channels),
+        total_costs=jnp.repeat(50, n_channels),
         number_warmup=5,
         number_samples=5,
         number_chains=1)
@@ -114,7 +114,7 @@ class PlotTest(parameterized.TestCase):
     mmm.fit(
         media=jnp.ones((50, 3)),
         target=jnp.ones(50),
-        costs=jnp.repeat(50, 3),
+        total_costs=jnp.repeat(50, 3),
         number_warmup=5,
         number_samples=5,
         number_chains=1)
@@ -154,7 +154,7 @@ class PlotTest(parameterized.TestCase):
     mmm.fit(
         media=jnp.ones((50, n_channels)),
         target=jnp.ones(50),
-        costs=jnp.repeat(50, n_channels),
+        total_costs=jnp.repeat(50, n_channels),
         number_warmup=5,
         number_samples=5,
         number_chains=1)
@@ -163,6 +163,13 @@ class PlotTest(parameterized.TestCase):
         media_mix_model=mmm, n_columns=n_columns)
 
     self.assertLen(fig.get_axes(), n_channels)
+
+  def test_unequal_length_ground_truth_and_predictions_raises_error(self):
+    prediction = jnp.arange(10).reshape((5, 2))
+    ground_truth = jnp.array([1, 2, 3])
+    with self.assertRaises(ValueError):
+      plot.plot_out_of_sample_model_fit(prediction, ground_truth)
+
 
 if __name__ == "__main__":
   absltest.main()

@@ -42,7 +42,7 @@ class OptimizeMediaTest(parameterized.TestCase):
         media=media,
         extra_features=extra_features,
         target=target,
-        costs=jnp.ones(3),
+        total_costs=jnp.ones(3),
         number_warmup=50,
         number_samples=50,
         number_chains=1)
@@ -116,7 +116,7 @@ class OptimizeMediaTest(parameterized.TestCase):
         media=media,
         extra_features=extra_features,
         target=target,
-        costs=jnp.ones(3),
+        total_costs=jnp.ones(3),
         number_warmup=50,
         number_samples=50,
         number_chains=1)

@@ -96,7 +96,7 @@ class LightweightMMM:
   def fit(
       self,
       media: jnp.ndarray,
-      costs: jnp.ndarray,
+      total_costs: jnp.ndarray,
       target: jnp.ndarray,
       extra_features: Optional[jnp.ndarray] = None,
       degrees_seasonality: int = 3,
@@ -116,8 +116,8 @@ class LightweightMMM:
 
     Args:
       media: Media input data.
-      costs: Costs of each media channel. The number of cost values must be
-        equal to the number of media channels.
+      total_costs: Costs of each media channel. The number of cost values must
+        be equal to the number of media channels.
       target: Target KPI to use, like for example sales.
       extra_features: Other variables to add to the model.
       degrees_seasonality: Number of degrees to use for seasonality. Default is
@@ -135,7 +135,7 @@ class LightweightMMM:
         https://num.pyro.ai/en/stable/utilities.html#initialization-strategies.
         Default is numpyro.infer.init_to_median.
     """
-    if media.shape[1] != len(costs):
+    if media.shape[1] != len(total_costs):
       raise ValueError("The number of data channels provided must match the "
                        "number of cost values.")
     if media.min() < 0:
@@ -161,7 +161,7 @@ class LightweightMMM:
         media_data=jnp.array(media),
         extra_features=extra_features,
         target_data=jnp.array(target),
-        cost_prior=jnp.array(costs),
+        cost_prior=jnp.array(total_costs),
         degrees_seasonality=degrees_seasonality,
         frequency=seasonality_frequency,
         transform_function=self._model_transform_function)
@@ -171,7 +171,7 @@ class LightweightMMM:
     else:
       self.media_names = [f"channel_{i}" for i in range(media.shape[1])]
     self.n_media_channels = media.shape[1]
-    self._costs = costs
+    self._total_costs = total_costs
     self.trace = mcmc.get_samples()
     self._number_warmup = number_warmup
     self._number_samples = number_samples
@@ -293,7 +293,7 @@ class LightweightMMM:
         rng_key=self._predict_rng,
         media_data=full_media,
         extra_features=full_extra_features,
-        cost_prior=jnp.array(self._costs),
+        cost_prior=jnp.array(self._total_costs),
         degrees_seasonality=self._degrees_seasonality,
         frequency=self._seasonality_frequency,
         transform_function=self._model_transform_function,
@@ -372,9 +372,9 @@ class LightweightMMM:
                       "training you can ignore this warning.")
     if unscaled_costs is None:
       if cost_scaler:
-        unscaled_costs = cost_scaler.inverse_transform(self._costs)
+        unscaled_costs = cost_scaler.inverse_transform(self._total_costs)
       else:
-        unscaled_costs = self._costs
+        unscaled_costs = self._total_costs
 
     predictions = self.trace["mu"].mean(axis=1)
     if target_scaler:
