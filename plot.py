@@ -53,30 +53,114 @@ def _make_single_prediction(media_mix_model: lightweight_mmm.LightweightMMM,
       jnp.expand_dims(mock_media, axis=0), extra_features).mean(axis=0)
 
 
-def plot_response_curves(
+@functools.partial(
+    jax.jit,
+    static_argnames=("media_mix_model", "extra_features", "target_scaler",
+                     "apply_log_scale"))
+def _generate_diagonal_predictions(
     media_mix_model: lightweight_mmm.LightweightMMM,
-    target_scaler: Optional[preprocessing.CustomScaler] = None,
-    prices: jnp.ndarray = None,
-    steps: int = 100,
-    percentage_add: float = 0.1) -> matplotlib.figure.Figure:
-  """Plots the response curves of each media channel based on the model.
+    media_values: jnp.ndarray,
+    extra_features: Optional[jnp.ndarray],
+    target_scaler: Optional[preprocessing.CustomScaler],
+    prediction_offset: jnp.ndarray):
+  """Generates predictions for one value per channel leaving the rest to zero.
 
-  It also plots the marginal ROI curve.
+  This function does the following steps:
+    - Vmaps the single prediction function on axis=0 of the media arg.
+    - Diagonalizes the media input values so that each value is represented
+      along side zeros on for the rest of the channels.
+    - Generate predictions.
+    - Unscale prediction if target_scaler is given.
 
   Args:
     media_mix_model: Media mix model to use for plotting the response curves.
+    media_values: Media values.
+    extra_features: Extra features values.
+    target_scaler: Scaler used for scaling the target, to unscaled values and
+      plot in the original scale.
+    prediction_offset: The value of a prediction of an all zero media input.
+
+  Returns:
+    The predictions for the given data.
+  """
+  make_predictions = jax.vmap(_make_single_prediction, in_axes=(None, 0, None))
+  diag_media_values = jnp.eye(media_values.shape[0]) * media_values
+  predictions = make_predictions(
+      media_mix_model,
+      diag_media_values,
+      extra_features) - prediction_offset
+  if target_scaler:
+    predictions = target_scaler.inverse_transform(predictions)
+  return predictions
+
+
+def _calculate_number_rows_plot(n_media_channels: int, n_columns: int):
+  """Calculates the number of rows of plots needed to fit n + 1 plots in n_cols.
+
+  Args:
+    n_media_channels: Number of media channels. The total of plots needed is
+      n_media_channels + 1.
+    n_columns: Number of columns in the plot grid.
+
+  Returns:
+    The number of rows of plots needed to fit n + 1 plots in n cols
+  """
+  if n_media_channels % n_columns == 0:
+    return n_media_channels // n_columns + 1
+  return n_media_channels // n_columns + 2
+
+
+def plot_response_curves(
+    media_mix_model: lightweight_mmm.LightweightMMM,
+    media_scaler: Optional[preprocessing.CustomScaler] = None,
+    target_scaler: Optional[preprocessing.CustomScaler] = None,
+    prices: jnp.ndarray = None,
+    optimal_allocation_per_timeunit: jnp.ndarray = None,
+    steps: int = 50,
+    percentage_add: float = 0.2,
+    apply_log_scale: bool = False,
+    figure_size: Tuple[int, int] = (10, 14),
+    n_columns: int = 3,
+    marker_size: int = 8,
+    legend_fontsize: int = 8) -> matplotlib.figure.Figure:
+  """Plots the response curves of each media channel based on the model.
+
+  It plots an individual subplot for each media channel. If '
+  optimal_allocation_per_timeunit is given it uses it to add markers based on
+  historic average spend and the given optimal one on each of the individual
+  subplots.
+
+  It then plots a combined plot with all the response curves which can be
+  changed to log scale if apply_log_scale is True.
+
+  Args:
+    media_mix_model: Media mix model to use for plotting the response curves.
+    media_scaler: Scaler that was used to scale the media data before training.
     target_scaler: Scaler used for scaling the target, to unscaled values and
       plot in the original scale.
     prices: Prices to translate the media units to spend. If all your data is
       already in spend numbers you can leave this as None. If some of your data
       is media spend and others is media unit, leave the media spend with price
       1 and add the price to the media unit channels.
+    optimal_allocation_per_timeunit: Optimal allocation per time unit per media
+      channel. This can be obtained by running the optimization provided by
+      LightweightMMM.
     steps: Number of steps to simulate.
     percentage_add: Percentage too exceed the maximum historic spend for the
       simulation of the response curve.
+    apply_log_scale: Whether to apply the log scale to the predictions (Y axis).
+      When some media channels have very large scale compare to others it might
+      be useful to use apply_log_scale=True. Default is False.
+    figure_size: Size of the plot figure.
+    n_columns: Number of columns to display in the subplots grid. Modifying this
+      parameter might require to adjust figure_size accordingly for the plot
+      to still have reasonable structure.
+    marker_size: Size of the marker for the optimization annotations. Only
+      useful if optimal_allocation_per_timeunit is not None. Default is 8.
+    legend_fontsize: Legend font size for individual subplots.
 
   Returns:
-    Plot of Response curve.
+    Plots of response curves.
   """
   if not hasattr(media_mix_model, "trace"):
     raise lightweight_mmm.NotFittedModelError(
@@ -100,44 +184,88 @@ def plot_response_curves(
       axis=0).reshape(media_mix_model.n_media_channels, steps,
                       media_mix_model.n_media_channels)
 
-  prediction_offset = media_mix_model.predict(jnp.zeros((1, *media.shape[1:])))
+  prediction_offset = media_mix_model.predict(
+      jnp.zeros((1, *media.shape[1:]))).mean(axis=0)
   mock_media = media_ranges * diagonal
-  predictions = jnp.squeeze(
-      a=make_predictions(media_mix_model, mock_media, extra_features))
-  predictions = jnp.transpose(predictions) - prediction_offset.mean(axis=0)
+  predictions = jnp.squeeze(a=make_predictions(media_mix_model,
+                                               mock_media,
+                                               extra_features))
+  predictions = jnp.transpose(predictions) - prediction_offset
   if target_scaler:
     predictions = target_scaler.inverse_transform(predictions)
 
+  if media_scaler:
+    media_ranges = media_scaler.inverse_transform(media_ranges)
+
   if prices is not None:
     media_ranges *= prices
-  # delta kpi / delta spend.
-  marginal = jnp.diff(
-      predictions, axis=0) / jnp.diff(
-          jnp.squeeze(media_ranges), axis=0)
 
-  # Two charts: top response curve, bottom marginal.
-  fig = plt.figure(tight_layout=True)
-  ax1 = plt.subplot(2, 1, 1)
-  ax2 = plt.subplot(2, 1, 2)
-  plt.axes(ax1)
-  for i in range(media_ranges.shape[2]):
+  if optimal_allocation_per_timeunit is not None:
+    average_allocation = media_mix_model.media.mean(axis=0)
+    average_allocation_predictions = _generate_diagonal_predictions(
+        media_mix_model=media_mix_model,
+        media_values=average_allocation,
+        extra_features=extra_features,
+        target_scaler=target_scaler,
+        prediction_offset=prediction_offset)
+    optimal_allocation_predictions = _generate_diagonal_predictions(
+        media_mix_model=media_mix_model,
+        media_values=optimal_allocation_per_timeunit,
+        extra_features=extra_features,
+        target_scaler=target_scaler,
+        prediction_offset=prediction_offset)
+
+    if media_scaler:
+      average_allocation = media_scaler.inverse_transform(average_allocation)
+      optimal_allocation_per_timeunit = media_scaler.inverse_transform(
+          optimal_allocation_per_timeunit)
+    if prices is not None:
+      optimal_allocation_per_timeunit *= prices
+      average_allocation *= prices
+
+  fig = plt.figure(media_mix_model.n_media_channels + 1,
+                   figsize=figure_size,
+                   tight_layout=True)
+  n_rows = _calculate_number_rows_plot(
+      n_media_channels=media_mix_model.n_media_channels, n_columns=n_columns)
+  last_ax = fig.add_subplot(n_rows, 1, n_rows)
+  for i in range(media_mix_model.n_media_channels):
+    ax = fig.add_subplot(n_rows, n_columns, i + 1)
     sns.lineplot(
         x=jnp.squeeze(media_ranges)[:, i],
         y=predictions[:, i],
-        label=media_mix_model.media_names[i])
-  plt.title("Response curves")
-  plt.ylabel("KPI")
-  plt.legend(bbox_to_anchor=(1, 1))
-
-  plt.axes(ax2)
-  for i in range(media_ranges.shape[2]):
+        label=media_mix_model.media_names[i],
+        color=sns.color_palette()[i],
+        ax=ax)
     sns.lineplot(
-        x=jnp.squeeze(media_ranges)[1:, i],
-        y=marginal[:, i],
-    )
-  plt.title("mROI")
-  plt.xlabel("Spend per channel")
-  plt.ylabel("KPI")
+        x=jnp.squeeze(media_ranges)[:, i],
+        y=jnp.log(predictions[:, i]) if apply_log_scale else predictions[:, i],
+        label=media_mix_model.media_names[i],
+        color=sns.color_palette()[i],
+        ax=last_ax)
+    if optimal_allocation_per_timeunit is not None:
+      ax.plot(
+          average_allocation[i],
+          average_allocation_predictions[i],
+          marker="o",
+          markersize=marker_size,
+          label="avg_spend",
+          color=sns.color_palette()[i])
+      ax.plot(
+          optimal_allocation_per_timeunit[i],
+          optimal_allocation_predictions[i],
+          marker="x",
+          markersize=marker_size + 2,
+          label="optimal_spend",
+          color=sns.color_palette()[i])
+    ax.set_ylabel("KPI")
+    ax.set_xlabel("Normalized Spend" if not media_scaler else "Spend")
+    ax.legend(fontsize=legend_fontsize)
+
+  fig.suptitle("Response curves", fontsize=20)
+  last_ax.set_ylabel("KPI" if not apply_log_scale else "log(KPI)")
+  last_ax.set_xlabel("Normalized spend per channel"
+                     if not media_scaler else "Spend per channel")
   plt.close()
   return fig
 

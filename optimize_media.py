@@ -130,9 +130,9 @@ def _generate_starting_values(
   """Generates starting values based on historic allocation and budget.
 
   In order to make a comparison we can take the allocation of the last
-  `n_time_periods` and scale it based on the given budget. Given this one can
-  compare how this initial values (based on historic allocation) compare to the
-  output of the optimisation in terms of sales/KPI.
+  `n_time_periods` and scale it based on the given budget. Given this, one can
+  compare how this initial values (based on average historic allocation) compare
+  to the output of the optimisation in terms of sales/KPI.
 
   Args:
     n_time_periods: Number of time periods the optimization will be done with.
@@ -144,7 +144,7 @@ def _generate_starting_values(
     An array with the starting value for each media channel for the
       optimization.
   """
-  previous_allocation = media[-n_time_periods:, ...].sum(axis=0)
+  previous_allocation = media.mean(axis=0) * n_time_periods
   if media_scaler:
     previous_allocation = media_scaler.inverse_transform(previous_allocation)
 
