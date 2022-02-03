@@ -112,7 +112,7 @@ def _get_lower_and_upper_bounds(
   Returns:
     A list of tuples with the lower and upper bound for each media channel.
   """
-  lower_bounds = jnp.minimum(media.min(axis=0) *
+  lower_bounds = jnp.maximum(media.min(axis=0) *
                              (1 - lower_pct), 0) * n_time_periods
   upper_bounds = (media.max(axis=0) * (1 + upper_pct)) * n_time_periods
   if media_scaler:
@@ -209,6 +209,19 @@ def find_optimal_budgets(
       lower_pct=bounds_lower_pct,
       upper_pct=bounds_upper_pct,
       media_scaler=media_scaler)
+
+  if sum([lower_bound for lower_bound, _ in bounds]) > budget:
+    logging.warning(
+        "Budget given is smaller than the lower bounds of the constraints for "
+        "optimization. This will lead to faulty optimization. Please either "
+        "increase the budget or change the lower bound by increasing the "
+        "percentage decrease with the `bounds_lower_pct` parameter.")
+  if sum([upper_bound for _, upper_bound in bounds]) < budget:
+    logging.warning(
+        "Budget given is larger than the upper bounds of the constraints for "
+        "optimization. This will lead to faulty optimization. Please either "
+        "reduce the budget or change the upper bound by increasing the "
+        "percentage increase with the `bounds_upper_pct` parameter.")
 
   starting_values = _generate_starting_values(n_time_periods=n_time_periods,
                                               media=media_mix_model.media,

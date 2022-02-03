@@ -131,12 +131,60 @@ class OptimizeMediaTest(parameterized.TestCase):
 
     _, call_kwargs = self.mock_minimize.call_args_list[0]
     # 15 weeks at 1.2 gives us 18. bounds
-    self.assertEqual(call_kwargs["bounds"], [(0.0, 18.0), (0.0, 18.0),
-                                             (0.0, 18.0)])
+    self.assertEqual(call_kwargs["bounds"], [(12.0, 18.0), (12.0, 18.0),
+                                             (12.0, 18.0)])
     np.testing.assert_array_equal(call_kwargs["fun"].args[5].divide_by,
                                   expected_media_scaler.divide_by)
     np.testing.assert_array_equal(call_kwargs["fun"].args[5].multiply_by,
                                   expected_media_scaler.multiply_by)
+
+  def test_budget_lower_than_constraints_warns_user(self):
+    mmm = lightweight_mmm.LightweightMMM()
+    mmm.fit(
+        media=jnp.ones((30, 5)) * 100,
+        target=jnp.ones(30),
+        total_costs=jnp.ones(5),
+        number_warmup=5,
+        number_samples=5,
+        number_chains=1)
+    expected_warning = (
+        "Budget given is smaller than the lower bounds of the constraints for "
+        "optimization. This will lead to faulty optimization. Please either "
+        "increase the budget or change the lower bound by increasing the "
+        "percentage decrease with the `bounds_lower_pct` parameter.")
+
+    with self.assertLogs(level="WARNING") as context_manager:
+      optimize_media.find_optimal_budgets(
+          n_time_periods=5,
+          media_mix_model=mmm,
+          budget=1,
+          prices=jnp.ones(5))
+    self.assertEqual(f"WARNING:absl:{expected_warning}",
+                     context_manager.output[0])
+
+  def test_budget_higher_than_constraints_warns_user(self):
+    mmm = lightweight_mmm.LightweightMMM()
+    mmm.fit(
+        media=jnp.ones((30, 5)),
+        target=jnp.ones(30),
+        total_costs=jnp.ones(5),
+        number_warmup=5,
+        number_samples=5,
+        number_chains=1)
+    expected_warning = (
+        "Budget given is larger than the upper bounds of the constraints for "
+        "optimization. This will lead to faulty optimization. Please either "
+        "reduce the budget or change the upper bound by increasing the "
+        "percentage increase with the `bounds_upper_pct` parameter.")
+
+    with self.assertLogs(level="WARNING") as context_manager:
+      optimize_media.find_optimal_budgets(
+          n_time_periods=5,
+          media_mix_model=mmm,
+          budget=2000,
+          prices=jnp.ones(5))
+    self.assertEqual(f"WARNING:absl:{expected_warning}",
+                     context_manager.output[0])
 
 
 if __name__ == "__main__":
