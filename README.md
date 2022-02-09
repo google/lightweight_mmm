@@ -105,13 +105,12 @@ extra_features_train = extra_features[:split_point, :]
 extra_features_test = extra_features[split_point:, :]
 
 # Scale data
-media_scaler = preprocessing.CustomScaler(divide_operation=np.mean)
-extra_features_scaler = preprocessing.CustomScaler(divide_operation=np.mean)
+media_scaler = preprocessing.CustomScaler(divide_operation=jnp.mean)
+extra_features_scaler = preprocessing.CustomScaler(divide_operation=jnp.mean)
 target_scaler = preprocessing.CustomScaler(
-    divide_operation=np.mean)
+    divide_operation=jnp.mean)
 # scale cost up by N since fit() will divide it by number of weeks
-cost_scaler = preprocessing.CustomScaler(divide_by=unscaled_costs.mean(),
-    multiply_by=len(target_train))
+cost_scaler = preprocessing.CustomScaler(divide_operation=jnp.mean)
 
 media_data_train = media_scaler.fit_transform(media_data_train)
 extra_features_train = extra_features_scaler.fit_transform(
