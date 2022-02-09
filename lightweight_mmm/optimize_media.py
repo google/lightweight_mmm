@@ -20,8 +20,8 @@ import jax
 import jax.numpy as jnp
 from scipy import optimize
 
-from lightweight_mmm import lightweight_mmm
-from lightweight_mmm import preprocessing
+from lightweight_mmm.lightweight_mmm import lightweight_mmm
+from lightweight_mmm.lightweight_mmm import preprocessing
 
 
 @functools.partial(

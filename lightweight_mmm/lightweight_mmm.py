@@ -45,8 +45,8 @@ import numpy as np
 import numpyro
 from numpyro import infer
 
-from lightweight_mmm import models
-from lightweight_mmm import preprocessing
+from lightweight_mmm.lightweight_mmm import models
+from lightweight_mmm.lightweight_mmm import preprocessing
 
 _NAMES_TO_MODEL_TRANSFORMS = frozendict.frozendict({
     "hill_adstock": models.transform_hill_adstock,

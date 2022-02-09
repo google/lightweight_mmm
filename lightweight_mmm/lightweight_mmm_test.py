@@ -19,8 +19,8 @@ from absl.testing import parameterized
 import jax.numpy as jnp
 import numpy as np
 
-from lightweight_mmm import lightweight_mmm
-from lightweight_mmm import models
+from lightweight_mmm.lightweight_mmm import lightweight_mmm
+from lightweight_mmm.lightweight_mmm import models
 
 
 class LightweightMmmTest(parameterized.TestCase):

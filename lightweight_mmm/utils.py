@@ -20,7 +20,7 @@ import jax.numpy as jnp
 import numpy as np
 from tensorflow.io import gfile
 
-from lightweight_mmm import lightweight_mmm
+from lightweight_mmm.lightweight_mmm import lightweight_mmm
 
 
 def save_model(

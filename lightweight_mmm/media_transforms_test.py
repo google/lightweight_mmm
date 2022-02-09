@@ -20,7 +20,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from lightweight_mmm import media_transforms
+from lightweight_mmm.lightweight_mmm import media_transforms
 
 
 class MediaTransformsTest(parameterized.TestCase):

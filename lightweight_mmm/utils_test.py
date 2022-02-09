@@ -19,8 +19,8 @@ import os
 from absl.testing import absltest
 import jax.numpy as jnp
 
-from lightweight_mmm import lightweight_mmm
-from lightweight_mmm import utils
+from lightweight_mmm.lightweight_mmm import lightweight_mmm
+from lightweight_mmm.lightweight_mmm import utils
 
 
 class UtilsTest(absltest.TestCase):

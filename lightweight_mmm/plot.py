@@ -26,8 +26,8 @@ import numpy as np
 import seaborn as sns
 from sklearn import metrics
 
-from lightweight_mmm import lightweight_mmm
-from lightweight_mmm import preprocessing
+from lightweight_mmm.lightweight_mmm import lightweight_mmm
+from lightweight_mmm.lightweight_mmm import preprocessing
 
 
 @functools.partial(jax.jit, static_argnames=("media_mix_model"))
