@@ -17,13 +17,15 @@
 import os
 
 from absl.testing import absltest
+from absl.testing import parameterized
+
 import jax.numpy as jnp
 
 from lightweight_mmm.lightweight_mmm import lightweight_mmm
 from lightweight_mmm.lightweight_mmm import utils
 
 
-class UtilsTest(absltest.TestCase):
+class UtilsTest(parameterized.TestCase):
 
   def test_save_model_file_is_correctly_saved(self):
     media = jnp.ones((20, 2), dtype=jnp.float32)
@@ -67,6 +69,74 @@ class UtilsTest(absltest.TestCase):
     loaded_mmm = utils.load_model(file_path)
 
     self.assertEqual(mmm_object, loaded_mmm)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="shape_100_3_3",
+          data_size=100,
+          n_media_channels=3,
+          n_extra_features=3),
+      dict(
+          testcase_name="shape_200_8_1",
+          data_size=200,
+          n_media_channels=8,
+          n_extra_features=1),
+      dict(
+          testcase_name="shape_300_2_2",
+          data_size=300,
+          n_media_channels=2,
+          n_extra_features=2),
+      dict(
+          testcase_name="shape_400_4_10",
+          data_size=400,
+          n_media_channels=4,
+          n_extra_features=10)
+  ])
+  def test_simulate_dummy_data_produces_correct_shape(self,
+                                                      data_size,
+                                                      n_media_channels,
+                                                      n_extra_features):
+    media_data, extra_features, target, costs = utils.simulate_dummy_data(
+        data_size=data_size,
+        n_media_channels=n_media_channels,
+        n_extra_features=n_extra_features)
+
+    self.assertEqual(media_data.shape, (data_size, n_media_channels))
+    self.assertEqual(extra_features.shape, (data_size, n_extra_features))
+    self.assertEqual(target.shape, (data_size,))
+    self.assertLen(costs, n_media_channels)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="shape_0_3_3",
+          data_size=0,
+          n_media_channels=3,
+          n_extra_features=3),
+      dict(
+          testcase_name="shape_200_-1_1",
+          data_size=200,
+          n_media_channels=-1,
+          n_extra_features=1),
+      dict(
+          testcase_name="shape_300_2_-2",
+          data_size=300,
+          n_media_channels=2,
+          n_extra_features=-2),
+      dict(
+          testcase_name="shape_-400_-4_-10",
+          data_size=-400,
+          n_media_channels=-4,
+          n_extra_features=-10)
+  ])
+  def test_simulate_dummy_data_with_zero_or_neg_parameter_raises_value_error(
+      self, data_size, n_media_channels, n_extra_features):
+
+    with self.assertRaises(ValueError):
+      utils.simulate_dummy_data(
+          data_size=data_size,
+          n_media_channels=n_media_channels,
+          n_extra_features=n_extra_features)
+
 
 if __name__ == "__main__":
   absltest.main()
