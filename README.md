@@ -16,6 +16,17 @@ It is built in [python3](https://www.python.org/) and makes use of
 - Learn about your media attribution and ROI per media channel.
 - Optimize your budget allocation.
 
+## Installation
+
+The recommended way of installing lightweight_mmm is through PyPi:
+
+`pip install lightweight_mmm`
+
+If you want to use the most recent and slightly less stable version you can 
+install it from github:
+
+`pip install --upgrade git+https://github.com/google/lightweight_mmm.git`
+
 ## The models
 
 **For larger countries we recommend a geo-based model, this is not implemented

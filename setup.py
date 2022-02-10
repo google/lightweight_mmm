@@ -34,7 +34,7 @@ install_requires = [
 
 setup(
     name="lightweight_mmm",
-    version="0.1",
+    version="0.1.0",
     description="Package for Media-Mix-Modelling",
     author="Google LLC",
     author_email="no-reply@google.com",

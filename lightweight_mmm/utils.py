@@ -107,7 +107,7 @@ def simulate_dummy_data(
   target_noise = random.normal(key=sub_keys[2], shape=(data_size,)) + 2
 
   media_data_transformed = media_transforms.adstock(media_data)
-  beta_media = random.normal(key=sub_keys[3], shape=(n_media_channels,)) + 2
+  beta_media = random.normal(key=sub_keys[3], shape=(n_media_channels,)) + 3
   beta_extra_features = random.normal(key=sub_keys[4],
                                       shape=(n_extra_features,))
   # There is no trend to keep this very simple.
