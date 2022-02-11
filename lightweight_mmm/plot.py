@@ -32,8 +32,9 @@ from lightweight_mmm.lightweight_mmm import preprocessing
 
 @functools.partial(jax.jit, static_argnames=("media_mix_model"))
 def _make_single_prediction(media_mix_model: lightweight_mmm.LightweightMMM,
-                            mock_media: jnp.array,
-                            extra_features: Optional[jnp.array]) -> jnp.array:
+                            mock_media: jnp.ndarray,
+                            extra_features: Optional[jnp.ndarray]
+                            ) -> jnp.ndarray:
   """Makes a prediction of a single row.
 
   Serves as a helper function for making predictions individually for each media
@@ -185,7 +186,8 @@ def plot_response_curves(
                       media_mix_model.n_media_channels)
 
   prediction_offset = media_mix_model.predict(
-      jnp.zeros((1, *media.shape[1:]))).mean(axis=0)
+      media=jnp.zeros((1, *media.shape[1:])),
+      extra_features=extra_features).mean(axis=0)
   mock_media = media_ranges * diagonal
   predictions = jnp.squeeze(a=make_predictions(media_mix_model,
                                                mock_media,
@@ -333,8 +335,8 @@ def plot_var_cost(media: jnp.ndarray, costs: jnp.ndarray,
   return fig
 
 
-def _create_shaded_line_plot(prediction: jnp.array,
-                             true_values: jnp.array,
+def _create_shaded_line_plot(prediction: jnp.ndarray,
+                             true_values: jnp.ndarray,
                              interval_mid_range: float = .9,
                              digits: int = 3) -> matplotlib.figure.Figure:
   """Creates a plot of ground truth, predicted value and credibility interval.
@@ -388,7 +390,7 @@ def _create_shaded_line_plot(prediction: jnp.array,
 
 
 def plot_model_fit(media_mix_model: lightweight_mmm.LightweightMMM,
-                   target_scaler: Optional[jnp.array] = None,
+                   target_scaler: Optional[preprocessing.CustomScaler] = None,
                    interval_mid_range: float = .9,
                    digits: int = 3) -> matplotlib.figure.Figure:
   """Plots the ground truth, predicted value and interval for the training data.
@@ -419,8 +421,8 @@ def plot_model_fit(media_mix_model: lightweight_mmm.LightweightMMM,
                                   interval_mid_range, digits)
 
 
-def plot_out_of_sample_model_fit(out_of_sample_predictions: jnp.array,
-                                 out_of_sample_target: jnp.array,
+def plot_out_of_sample_model_fit(out_of_sample_predictions: jnp.ndarray,
+                                 out_of_sample_target: jnp.ndarray,
                                  interval_mid_range: float = .9,
                                  digits: int = 3) -> matplotlib.figure.Figure:
   """Plots the ground truth, predicted value and interval for the test data.
