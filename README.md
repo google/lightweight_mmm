@@ -1,5 +1,7 @@
 # Lightweight (Bayesian) Media Mix Model
 
+##### This is not an official Google product.
+
 LightweightMMM is a lightweight Bayesian [media mix modeling](https://en.wikipedia.org/wiki/Marketing_mix_modeling)
 library that allows users to easily train MMMs and obtain channel attribution 
 information. The library also includes capabilities for optimizing media 
@@ -145,7 +147,7 @@ See an example below:
 mmm = lightweight_mmm.LightweightMMM()
 mmm.fit(media=media_data,
         extra_features=extra_features,
-        costs=costs,
+        total_costs=costs,
         target=target,
         number_warmup=1000,
         number_samples=1000,
