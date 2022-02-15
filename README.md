@@ -2,7 +2,7 @@
 
 ##### This is not an official Google product.
 
-LightweightMMM is a lightweight Bayesian [media mix modeling](https://en.wikipedia.org/wiki/Marketing_mix_modeling)
+LightweightMMM &#129415; is a lightweight Bayesian [media mix modeling](https://en.wikipedia.org/wiki/Marketing_mix_modeling)
 library that allows users to easily train MMMs and obtain channel attribution 
 information. The library also includes capabilities for optimizing media 
 allocation as well as plotting common graphs in the field.
@@ -32,33 +32,34 @@ install it from github:
 ## The models
 
 **For larger countries we recommend a geo-based model, this is not implemented
-yet**
+yet.**
 
 We estimate a **national** weekly model where we use sales revenue (y) as the KPI.
 
-$$\mu_t = a + trend_t + seasonality_t + \beta_m f(lag(X_{mt}, \phi_m), \theta_m) + ...$$
+$$\mu_t = a + trend_t + seasonality_t + \beta_m sat(lag(X_{mt}, \phi_m), \theta_m) + \beta_o X_{ot}$$
 
-$$y_t \sim N(\mu_t, \sigma)$$
+$$y_t \sim N(\mu_t, \sigma^2)$$
 
 $$\sigma \sim \Gamma(1, 1)$$
 
-$$\beta_m \sim N^+(0, ...)$$
+$$\beta_m \sim N^+(0, \sigma_m^2)$$
 
-$$X_m$$ is a media matrix.
+$$X_m$$ is a media matrix and $$X_o$$ is a matrix of other exogenous variables.
 
 Seasonality is a latent sinusoidal parameter with a repeating pattern.
 
-Media parameter beta is informed by costs. It uses a HalfNormal distribution and
+Media parameter $$\beta_m$$ is informed by costs. It uses a HalfNormal distribution and
 the scale of the distribution is the total cost of each media channel.
 
-f() is a saturation function and lag() is a lagging function, eg Adstock.
+$$sat()$$ is a saturation function and $$lag()$$ is a lagging function, eg Adstock.
+They have parameters $$\theta$$ and $$\phi$$ respectively.
 
 We have three different versions of the MMM with different lagging and
 saturation and we recommend you compare all three models. The Adstock and carryover
-models have an exponent for diminishing returns. The Hill functions covers that 
-functionality for the Hill-Adstock model.  
-- [Adstock](https://en.wikipedia.org/wiki/Advertising_adstock): Applies an infinite lag that decreases its weight as time passes.  
-- [Hill-Adstock](https://en.wikipedia.org/wiki/Hill_equation_(biochemistry)): Applies a sigmoid like function for diminishing returns to the output of the adstock function.  
+models have an exponent for diminishing returns. The Hill functions covers that
+functionality for the Hill-Adstock model.
+- [Adstock](https://en.wikipedia.org/wiki/Advertising_adstock): Applies an infinite lag that decreases its weight as time passes.
+- [Hill-Adstock](https://en.wikipedia.org/wiki/Hill_equation_(biochemistry)): Applies a sigmoid like function for diminishing returns to the output of the adstock function.
 - [Carryover](https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/46001.pdf): Applies a [causal convolution](https://paperswithcode.com/method/causal-convolution) giving more weight to the near values than distant ones.
 
 ## Scaling
@@ -198,11 +199,11 @@ For running the optimization one needs the following main parameters:
 - The `budget` you want to allocate for the next `n_time_periods`.
 - The extra features used for training for the following `n_time_periods`.
 - Price per media unit per channel.
-- `media_gap` refers to the media data gap between the end of training data and 
-  the start of the out of sample media given. Eg. if 100 weeks of data were used 
-  for training and prediction starts 2 months after training data finished we 
-  need to provide the 8 weeks missing between the training data and the 
-  prediction data so data transformations (adstock, carryover, ...) can take 
+- `media_gap` refers to the media data gap between the end of training data and
+  the start of the out of sample media given. Eg. if 100 weeks of data were used
+  for training and prediction starts 2 months after training data finished we
+  need to provide the 8 weeks missing between the training data and the
+  prediction data so data transformations (adstock, carryover, ...) can take
   place correctly.
 
 See below and example of optimization:
