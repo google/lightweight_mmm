@@ -36,23 +36,17 @@ yet.**
 
 We estimate a **national** weekly model where we use sales revenue (y) as the KPI.
 
-$$\mu_t = a + trend_t + seasonality_t + \beta_m sat(lag(X_{mt}, \phi_m), \theta_m) + \beta_o X_{ot}$$
+<img src="https://raw.githubusercontent.com/google/lightweight_mmm/main/images/simplified_model_formula.png" alt="simplified_model_formula"></img>
 
-$$y_t \sim N(\mu_t, \sigma^2)$$
-
-$$\sigma \sim \Gamma(1, 1)$$
-
-$$\beta_m \sim N^+(0, \sigma_m^2)$$
-
-$$X_m$$ is a media matrix and $$X_o$$ is a matrix of other exogenous variables.
+where `X_m` is a media matrix and `X_o` is a matrix of other exogenous variables.
 
 Seasonality is a latent sinusoidal parameter with a repeating pattern.
 
-Media parameter $$\beta_m$$ is informed by costs. It uses a HalfNormal distribution and
+Media parameter `beta_m` is informed by costs. It uses a HalfNormal distribution and
 the scale of the distribution is the total cost of each media channel.
 
-$$sat()$$ is a saturation function and $$lag()$$ is a lagging function, eg Adstock.
-They have parameters $$\theta$$ and $$\phi$$ respectively.
+`sat()` is a saturation function and `lag()` is a lagging function, eg Adstock.
+Each of them can have their respective parameters.
 
 We have three different versions of the MMM with different lagging and
 saturation and we recommend you compare all three models. The Adstock and carryover
@@ -68,8 +62,8 @@ Scaling is a bit of an art, Bayesian techniques work well if the input data is
 small scale. We should not center variables at 0. Sales and media should have a
 lower bound of 0.
 
-1. `y` can be scaled as $$y / mean_y$$.
-2. `media` can be scaled as $$X_m / mean_X$$, which means the new column mean will be 1.
+1. `y` can be scaled as `y / jnp.mean(y)`.
+2. `media` can be scaled as `X_m / jnp.mean(X_m, axis=0)`, which means the new column mean will be 1.
 
 ## Optimization
 
@@ -82,7 +76,7 @@ time.
 ## Getting started
 
 ### Preparing the data
-Here we use simulated data but it is assumed you have you data cleaned at this
+Here we use simulated data but it is assumed you have your data cleaned at this
 point. The necessary data will be:
 
 - Media data: Containing the metric per channel and time span (eg. impressions
@@ -95,9 +89,10 @@ point. The necessary data will be:
 - Costs: The average cost per media unit per channel.
 
 ```
-# Let's assume we have the following datasets with the following shapes:
-media_data, extra_features, target, unscaled_costs, _ = data_simulation.simulate_all_data(
-    data_size=120,
+# Let's assume we have the following datasets with the following shapes (we use
+the `simulate_dummy_data` function in utils for this example):
+media_data, extra_features, target, costs = utils.simulate_dummy_data(
+    data_size=160,
     n_media_channels=3,
     n_extra_features=2)
 ```
@@ -163,31 +158,6 @@ scale your data you can simply call:
 ```
 mmm.get_posterior_metrics()
 ```
-However if you scaled your media data, target or both it is important that you
-provide `get_posterior_metrics` with the necessary information to unscale the
-data and calculate media effect and ROI.
-
-- If only costs were scaled, the following two function calls are equivalent:
-
-```
-# Option 1
-mmm.get_posterior_metrics(cost_scaler=cost_scaler)
-# Option 2
-mmm.get_posterior_metrics(unscaled_costs=unscaled_costs)
-```
-
-- If only the target was scaled:
-
-```
-mmm.get_posterior_metrics(target_scaler=target_scaler)
-```
-
-- If both were scaled:
-
-```
-mmm.get_posterior_metrics(cost_scaler=cost_scaler,
-                          target_scaler=target_scaler)
-```
 
 ### Running the optimization
 
@@ -224,8 +194,7 @@ solution = optimize_media.find_optimal_budgets(
 ## Run times
 
 A model with 5 media variables and 1 other variable and 150 weeks, 1500 draws
-and 2 chains should take 7 mins per chain to estimate (on CPU machine). This
-excludes compile time.
+and 2 chains should take 6 mins per chain to estimate (on CPU machine).
 
 ## References
 
