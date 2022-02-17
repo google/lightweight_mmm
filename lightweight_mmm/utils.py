@@ -90,13 +90,15 @@ def simulate_dummy_data(
     raise ValueError(
         "Data size, n_media_channels and n_extra_features must be greater than"
         " 0. Please check the values introduced are greater than zero.")
+  data_offset = int(data_size * 0.3)
+  data_size += data_offset
   key = random.PRNGKey(seed)
   sub_keys = random.split(key=key, num=5)
   media_data = random.normal(key=sub_keys[0],
-                             shape=(data_size, n_media_channels)) + 10
+                             shape=(data_size, n_media_channels)) + 100
 
   extra_features = random.normal(key=sub_keys[1],
-                                 shape=(data_size, n_extra_features)) + 10
+                                 shape=(data_size, n_extra_features)) + 5
   costs = media_data.sum(axis=0)
 
   seasonality = media_transforms.calculate_seasonality(
@@ -104,14 +106,19 @@ def simulate_dummy_data(
       degrees=2,
       frequency=52,
       gamma_seasonality=1)
-  target_noise = random.normal(key=sub_keys[2], shape=(data_size,)) + 2
+  target_noise = random.normal(key=sub_keys[2], shape=(data_size,)) + 3
 
   media_data_transformed = media_transforms.adstock(media_data)
-  beta_media = random.normal(key=sub_keys[3], shape=(n_media_channels,)) + 3
+  beta_media = random.normal(key=sub_keys[3], shape=(n_media_channels,)) + 1
   beta_extra_features = random.normal(key=sub_keys[4],
                                       shape=(n_extra_features,))
   # There is no trend to keep this very simple.
   target = 10 + seasonality + media_data_transformed.dot(
       beta_media) + extra_features.dot(beta_extra_features) + target_noise
 
-  return media_data, extra_features, target, costs
+  return (
+      media_data[data_offset:],
+      extra_features[data_offset:],
+      target[data_offset:],
+      costs)
+
