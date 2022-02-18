@@ -20,7 +20,7 @@ import jax
 import jax.numpy as jnp
 import numpyro
 
-from lightweight_mmm.lightweight_mmm import models
+from lightweight_mmm import models
 
 
 class ModelsTest(parameterized.TestCase):
