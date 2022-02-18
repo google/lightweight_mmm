@@ -244,6 +244,7 @@ def plot_response_curves(
       optimal_allocation_per_timeunit *= prices
       average_allocation *= prices
 
+  kpi_label = "KPI" if target_scaler else "Normalized KPI"
   fig = plt.figure(media_mix_model.n_media_channels + 1,
                    figsize=figure_size,
                    tight_layout=True)
@@ -279,12 +280,12 @@ def plot_response_curves(
           markersize=marker_size + 2,
           label="optimal_spend",
           color=sns.color_palette()[i])
-    ax.set_ylabel("KPI")
+    ax.set_ylabel(kpi_label)
     ax.set_xlabel("Normalized Spend" if not media_scaler else "Spend")
     ax.legend(fontsize=legend_fontsize)
 
   fig.suptitle("Response curves", fontsize=20)
-  last_ax.set_ylabel("KPI" if not apply_log_scale else "log(KPI)")
+  last_ax.set_ylabel(kpi_label if not apply_log_scale else f"log({kpi_label})")
   last_ax.set_xlabel("Normalized spend per channel"
                      if not media_scaler else "Spend per channel")
   plt.close()
