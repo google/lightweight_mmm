@@ -14,19 +14,19 @@
 
 """Set of utilities for LightweighMMM package."""
 import pickle
-from typing import Tuple
+import time
+from typing import Any, Tuple
 
 from jax import random
 import jax.numpy as jnp
 import numpy as np
 from tensorflow.io import gfile
 
-from lightweight_mmm import lightweight_mmm
 from lightweight_mmm import media_transforms
 
 
 def save_model(
-    media_mix_model: lightweight_mmm.LightweightMMM,
+    media_mix_model: Any,
     file_path: str
     ) -> None:
   """Saves the given model in the given path.
@@ -39,7 +39,7 @@ def save_model(
     pickle.dump(obj=media_mix_model, file=file)
 
 
-def load_model(file_path: str) -> lightweight_mmm.LightweightMMM:
+def load_model(file_path: str) -> Any:
   """Loads a model given a string path.
 
   Args:
@@ -59,6 +59,16 @@ def load_model(file_path: str) -> lightweight_mmm.LightweightMMM:
       setattr(media_mix_model, attr, jnp.array(attr_value))
 
   return media_mix_model
+
+
+def get_time_seed() -> int:
+  """Generates an integer using the last decimals of time.time().
+
+  Returns:
+    Integer to be used as seed.
+  """
+  # time.time() has the following format: 1645174953.0429401
+  return int(str(time.time()).split(".")[1])
 
 
 def simulate_dummy_data(

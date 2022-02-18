@@ -22,7 +22,8 @@ install_requires = [
     "arviz",
     "dataclasses;python_version<'3.7'",
     "frozendict",
-    "jax>=0.2.21",
+    "jax>=0.3.0",
+    "jaxlib>=0.3.0",
     "matplotlib==3.3.4",
     "numpy>=1.12",
     "numpyro>=0.8.0",
@@ -34,7 +35,7 @@ install_requires = [
 
 setup(
     name="lightweight_mmm",
-    version="0.1.0",
+    version="0.1.1",
     description="Package for Media-Mix-Modelling",
     author="Google LLC",
     author_email="no-reply@google.com",

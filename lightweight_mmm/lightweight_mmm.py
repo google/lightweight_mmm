@@ -47,6 +47,7 @@ from numpyro import infer
 
 from lightweight_mmm import models
 from lightweight_mmm import preprocessing
+from lightweight_mmm import utils
 
 _NAMES_TO_MODEL_TRANSFORMS = frozendict.frozendict({
     "hill_adstock": models.transform_hill_adstock,
@@ -79,10 +80,8 @@ class LightweightMMM:
     media: The media data the model is trained on. Usefull for a variety of
       insights post model fitting.
     media_names: Names of the media channels passed at fitting time.
-    seed: Starting seed to use for PRNGKeys.
   """
   model_name: str = "hill_adstock"
-  seed: int = 0
 
   def __post_init__(self):
     if self.model_name not in _NAMES_TO_MODEL_TRANSFORMS:
@@ -90,8 +89,6 @@ class LightweightMMM:
                        "following: 'hill_adstock', 'adstock', 'carryover'.")
     self._model_function = _MODEL_FUNCTION
     self._model_transform_function = _NAMES_TO_MODEL_TRANSFORMS[self.model_name]
-    self._main_rng = jax.random.PRNGKey(self.seed)
-    self._fit_rng, self._predict_rng = jax.random.split(self._main_rng)
 
   def fit(
       self,
@@ -107,8 +104,8 @@ class LightweightMMM:
       number_chains: int = 2,
       target_accept_prob: float = .85,
       init_strategy: Callable[[Mapping[Any, Any], Any],
-                              jnp.ndarray] = numpyro.infer.init_to_median
-      ) -> None:
+                              jnp.ndarray] = numpyro.infer.init_to_median,
+      seed: Optional[int] = None) -> None:
     """Fits MMM given the media data, extra features, costs and sales/KPI.
 
     For detailed information on the selected model please refer to its
@@ -134,30 +131,34 @@ class LightweightMMM:
         options can be found in
         https://num.pyro.ai/en/stable/utilities.html#initialization-strategies.
         Default is numpyro.infer.init_to_median.
+      seed: Seed to use for PRNGKey during training. For better replicability
+        run all different trainings with the same seed.
     """
     if media.shape[1] != len(total_costs):
       raise ValueError("The number of data channels provided must match the "
                        "number of cost values.")
     if media.min() < 0:
       raise ValueError("Media values must be greater or equal to zero.")
-    # TODO(): only positive based media_size denominator for cost prior.
+
+    if extra_features is not None:
+      extra_features = jnp.array(extra_features)
+
+    if seed is None:
+      seed = utils.get_time_seed()
+
     train_media_size = media.shape[0]
     kernel = numpyro.infer.NUTS(
         model=self._model_function,
         target_accept_prob=target_accept_prob,
         init_strategy=init_strategy)
 
-    if extra_features is not None:
-      extra_features = jnp.array(extra_features)
-
     mcmc = numpyro.infer.MCMC(
         sampler=kernel,
         num_warmup=number_warmup,
         num_samples=number_samples,
         num_chains=number_chains)
-    rng_key = jax.random.PRNGKey(0)
     mcmc.run(
-        rng_key,
+        rng_key=jax.random.PRNGKey(seed),
         media_data=jnp.array(media),
         extra_features=extra_features,
         target_data=jnp.array(target),
@@ -236,7 +237,8 @@ class LightweightMMM:
       media: jnp.ndarray,
       extra_features: Optional[jnp.ndarray] = None,
       media_gap: Optional[jnp.ndarray] = None,
-      target_scaler: Optional[preprocessing.CustomScaler] = None
+      target_scaler: Optional[preprocessing.CustomScaler] = None,
+      seed: Optional[int] = None
   ) -> jnp.ndarray:
     """Runs the model to obtain predictions for the given input data.
 
@@ -253,6 +255,9 @@ class LightweightMMM:
         prediction data so data transformations (adstock, carryover, ...) can
         take place correctly.
       target_scaler: Scaler that was used to scale the target before training.
+      seed: Seed to use for PRNGKey during sampling. For replicability run
+        this function and any other function that utilises predictions with the
+        same seed.
 
     Returns:
       Predictions for the given media and extra features at a given date index.
@@ -289,8 +294,10 @@ class LightweightMMM:
           arrays=[previous_extra_features, extra_features], axis=0)
     else:
       full_extra_features = None
+    if seed is None:
+      seed = utils.get_time_seed()
     prediction = self._predict(
-        rng_key=self._predict_rng,
+        rng_key=jax.random.PRNGKey(seed=seed),
         media_data=full_media,
         extra_features=full_extra_features,
         cost_prior=jnp.array(self._total_costs),

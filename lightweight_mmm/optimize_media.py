@@ -34,6 +34,7 @@ def _objective_function(extra_features: jnp.ndarray,
                                                  int], media_gap: Optional[int],
                         target_scaler: Optional[preprocessing.CustomScaler],
                         media_scaler: preprocessing.CustomScaler,
+                        seed: Optional[int],
                         media_values: jnp.ndarray) -> jnp.float64:
   """Objective function to calculate the sum of all predictions of the model.
 
@@ -52,6 +53,9 @@ def _objective_function(extra_features: jnp.ndarray,
       place correctly.
     target_scaler: Scaler that was used to scale the target before training.
     media_scaler: Scaler that was used to scale the media data before training.
+    seed: Seed to use for PRNGKey during sampling. For replicability run
+      this function and any other function that gets predictions with the same
+      seed.
     media_values: Media values required by the model to run predictions.
 
   Returns:
@@ -66,7 +70,8 @@ def _objective_function(extra_features: jnp.ndarray,
           media=media_values.reshape(media_input_shape),
           extra_features=extra_features,
           media_gap=media_gap,
-          target_scaler=target_scaler).mean(axis=0))
+          target_scaler=target_scaler,
+          seed=seed).mean(axis=0))
 
 
 @jax.jit
@@ -163,7 +168,8 @@ def find_optimal_budgets(
     media_scaler: Optional[preprocessing.CustomScaler] = None,
     bounds_lower_pct: Union[float, jnp.ndarray] = .2,
     bounds_upper_pct: Union[float, jnp.ndarray] = .2,
-    max_iterations: int = 500) -> optimize.OptimizeResult:
+    max_iterations: int = 500,
+    seed: Optional[int] = None) -> optimize.OptimizeResult:
   """Finds the best media allocation based on MMM model, prices and a budget.
 
   Args:
@@ -188,6 +194,9 @@ def find_optimal_budgets(
       consider as new upper bound.
     max_iterations: Number of max iterations to use for the SLSQP scipy
       optimizer. Default is 500.
+    seed: Seed to use for PRNGKey during sampling. For replicability run
+      this function and any other function that gets predictions with the same
+      seed.
 
   Returns:
     OptimizeResult object containing the results of the optimization.
@@ -234,7 +243,7 @@ def find_optimal_budgets(
   partial_objective_function = functools.partial(
       _objective_function, extra_features, media_mix_model,
       media_input_shape, media_gap,
-      target_scaler, media_scaler)
+      target_scaler, media_scaler, seed)
 
   solution = optimize.minimize(
       fun=partial_objective_function,
@@ -257,6 +266,7 @@ def find_optimal_budgets(
                                           media_gap=media_gap,
                                           target_scaler=target_scaler,
                                           media_scaler=media_scaler,
+                                          seed=seed,
                                           media_values=starting_values)
   logging.info("KPI without optimization: %r", -1 * kpi_without_optim.item())
   logging.info("KPI with optimization: %r", -1 * solution.fun)

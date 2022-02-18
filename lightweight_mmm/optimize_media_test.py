@@ -54,7 +54,8 @@ class OptimizeMediaTest(parameterized.TestCase):
         media_gap=None,
         target_scaler=None,
         media_scaler=preprocessing.CustomScaler(),
-        media_values=jnp.ones(3) * 10)
+        media_values=jnp.ones(3) * 10,
+        seed=10)
 
     self.assertIsInstance(kpi_predicted, jnp.DeviceArray)
     self.assertLessEqual(kpi_predicted, 0)

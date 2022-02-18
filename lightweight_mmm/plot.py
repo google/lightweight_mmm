@@ -33,7 +33,8 @@ from lightweight_mmm import preprocessing
 @functools.partial(jax.jit, static_argnames=("media_mix_model"))
 def _make_single_prediction(media_mix_model: lightweight_mmm.LightweightMMM,
                             mock_media: jnp.ndarray,
-                            extra_features: Optional[jnp.ndarray]
+                            extra_features: Optional[jnp.ndarray],
+                            seed: Optional[int]
                             ) -> jnp.ndarray:
   """Makes a prediction of a single row.
 
@@ -46,12 +47,17 @@ def _make_single_prediction(media_mix_model: lightweight_mmm.LightweightMMM,
     media_mix_model: Media mix model to use for getting the predictions.
     mock_media: Mock media for this iteration of predictions.
     extra_features: Extra features to use for predictions.
+    seed: Seed to use for PRNGKey during sampling. For replicability run
+      this function and any other function that gets predictions with the same
+      seed.
 
   Returns:
     A point estimate for the given data.
   """
   return media_mix_model.predict(
-      jnp.expand_dims(mock_media, axis=0), extra_features).mean(axis=0)
+      media=jnp.expand_dims(mock_media, axis=0),
+      extra_features=extra_features,
+      seed=seed).mean(axis=0)
 
 
 @functools.partial(
@@ -63,7 +69,8 @@ def _generate_diagonal_predictions(
     media_values: jnp.ndarray,
     extra_features: Optional[jnp.ndarray],
     target_scaler: Optional[preprocessing.CustomScaler],
-    prediction_offset: jnp.ndarray):
+    prediction_offset: jnp.ndarray,
+    seed: Optional[int]):
   """Generates predictions for one value per channel leaving the rest to zero.
 
   This function does the following steps:
@@ -80,16 +87,21 @@ def _generate_diagonal_predictions(
     target_scaler: Scaler used for scaling the target, to unscaled values and
       plot in the original scale.
     prediction_offset: The value of a prediction of an all zero media input.
+    seed: Seed to use for PRNGKey during sampling. For replicability run
+      this function and any other function that gets predictions with the same
+      seed.
 
   Returns:
     The predictions for the given data.
   """
-  make_predictions = jax.vmap(_make_single_prediction, in_axes=(None, 0, None))
+  make_predictions = jax.vmap(fun=_make_single_prediction,
+                              in_axes=(None, 0, None, None))
   diag_media_values = jnp.eye(media_values.shape[0]) * media_values
   predictions = make_predictions(
       media_mix_model,
       diag_media_values,
-      extra_features) - prediction_offset
+      extra_features,
+      seed) - prediction_offset
   if target_scaler:
     predictions = target_scaler.inverse_transform(predictions)
   return predictions
@@ -123,7 +135,8 @@ def plot_response_curves(
     figure_size: Tuple[int, int] = (10, 14),
     n_columns: int = 3,
     marker_size: int = 8,
-    legend_fontsize: int = 8) -> matplotlib.figure.Figure:
+    legend_fontsize: int = 8,
+    seed: Optional[int] = None) -> matplotlib.figure.Figure:
   """Plots the response curves of each media channel based on the model.
 
   It plots an individual subplot for each media channel. If '
@@ -159,6 +172,9 @@ def plot_response_curves(
     marker_size: Size of the marker for the optimization annotations. Only
       useful if optimal_allocation_per_timeunit is not None. Default is 8.
     legend_fontsize: Legend font size for individual subplots.
+    seed: Seed to use for PRNGKey during sampling. For replicability run
+      this function and any other function that gets predictions with the same
+      seed.
 
   Returns:
     Plots of response curves.
@@ -178,8 +194,8 @@ def plot_response_curves(
       jnp.linspace(start=0, stop=media_maxes, num=steps), axis=0)
 
   make_predictions = jax.vmap(
-      jax.vmap(_make_single_prediction, in_axes=(None, 0, None)),
-      in_axes=(None, 0, None))
+      jax.vmap(_make_single_prediction, in_axes=(None, 0, None, None)),
+      in_axes=(None, 0, None, None))
   diagonal = jnp.repeat(
       jnp.eye(media_mix_model.n_media_channels), steps,
       axis=0).reshape(media_mix_model.n_media_channels, steps,
@@ -191,7 +207,8 @@ def plot_response_curves(
   mock_media = media_ranges * diagonal
   predictions = jnp.squeeze(a=make_predictions(media_mix_model,
                                                mock_media,
-                                               extra_features))
+                                               extra_features,
+                                               seed))
   predictions = jnp.transpose(predictions) - prediction_offset
   if target_scaler:
     predictions = target_scaler.inverse_transform(predictions)
@@ -209,13 +226,15 @@ def plot_response_curves(
         media_values=average_allocation,
         extra_features=extra_features,
         target_scaler=target_scaler,
-        prediction_offset=prediction_offset)
+        prediction_offset=prediction_offset,
+        seed=seed)
     optimal_allocation_predictions = _generate_diagonal_predictions(
         media_mix_model=media_mix_model,
         media_values=optimal_allocation_per_timeunit,
         extra_features=extra_features,
         target_scaler=target_scaler,
-        prediction_offset=prediction_offset)
+        prediction_offset=prediction_offset,
+        seed=seed)
 
     if media_scaler:
       average_allocation = media_scaler.inverse_transform(average_allocation)
