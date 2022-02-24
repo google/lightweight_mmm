@@ -134,7 +134,9 @@ The model requires the media data, the extra features, the costs of each media
 unit per channel and the target. You can also pass how many samples you would
 like to use as well as the number of chains. 
 
-For running multiple chains in parallel the user would need to set `numpyro.set_host_device_count` to either the number of chains or the number of CPUs available.
+For running multiple chains in parallel the user would need to set
+`numpyro.set_host_device_count` to either the number of chains or the number of
+CPUs available.
 
 See an example below:
 
@@ -149,6 +151,12 @@ mmm.fit(media=media_data,
         number_samples=1000,
         number_chains=2)
 ```
+
+You can switch between daily and weekly data by enabling
+`weekday_seasonality=True` and `seasonality_frequency=365` or
+`weekday_seasonality=False` and `seasonality_frequency=52` (default). In case
+of daily data we have two types of seasonality: discrete weekday and smooth
+annual.
 
 ### Obtaining media effect and ROI
 

@@ -74,6 +74,17 @@ class LightweightMmmTest(parameterized.TestCase):
           number_samples=5,
           number_chains=1)
 
+  def test_daily_data_returns_weekday_parameter(self):
+    n = 50
+    media = jnp.arange(2 * n).reshape((n, 2)).astype(jnp.float32)
+    target = 1 + 1 * (jnp.arange(n) % 7 == 1) + media[:, 1]
+    costs = jnp.array([1, 2])
+    mmm_object = lightweight_mmm.LightweightMMM()
+    mmm_object.fit(media=media, total_costs=costs, target=target,
+                   weekday_seasonality=True, number_warmup=5, number_samples=5,
+                   number_chains=1)
+    self.assertEqual(mmm_object.trace["weekday"].shape, (5, 7))
+
   def test_predict_fit_sets_correct_attributes(self):
     media = jnp.ones((20, 3), dtype=jnp.float32)
     extra_features = jnp.arange(40).reshape((20, 2))
@@ -83,7 +94,8 @@ class LightweightMmmTest(parameterized.TestCase):
                            "_number_warmup", "_number_samples",
                            "_number_chains", "_target", "_train_media_size",
                            "_degrees_seasonality", "_seasonality_frequency",
-                           "media", "_extra_features", "_mcmc", "media_names")
+                           "_weekday_seasonality", "media", "_extra_features",
+                           "_mcmc", "media_names")
 
     mmm_object = lightweight_mmm.LightweightMMM()
     mmm_object.fit(

@@ -126,6 +126,7 @@ def media_mix_model(media_data: jnp.ndarray,
                     transform_function: Callable[[jnp.array], jnp.array],
                     transform_kwargs: Mapping[str,
                                               Any] = frozendict.frozendict(),
+                    weekday_seasonality: bool = False,
                     extra_features: Optional[jnp.array] = None) -> None:
   """Media mix model.
 
@@ -134,7 +135,7 @@ def media_mix_model(media_data: jnp.ndarray,
     target_data: Target data for the model.
     cost_prior: Cost prior for each of the media channels.
     degrees_seasonality: Number of degrees of seasonality to use.
-    frequency: Frequency of the time spam which was used to aggregate the data.
+    frequency: Frequency of the time span which was used to aggregate the data.
       Eg. if weekly data then frequency is 52.
     transform_function: Function to use to transform the media data in the
       model. Currently the following are supported: 'transform_adstock',
@@ -142,6 +143,8 @@ def media_mix_model(media_data: jnp.ndarray,
     transform_kwargs: Any extra keyword arguments to pass to the transform
       function. For example the adstock function can take a boolean to noramlise
       output or not.
+    weekday_seasonality: In case of daily data you can estimate a weekday (7)
+      parameter.
     extra_features: Extra features data to include in the model.
   """
   data_size = media_data.shape[0]
@@ -160,6 +163,11 @@ def media_mix_model(media_data: jnp.ndarray,
       gamma_seasonality = numpyro.sample("gamma_seasonality",
                                          dist.Normal(loc=0., scale=1.))
 
+  if weekday_seasonality:
+    with numpyro.plate("weekday_plate", 7):
+      weekday = numpyro.sample("weekday", dist.Normal(loc=0., scale=.5))
+    weekday_series = weekday[jnp.arange(data_size) % 7]
+
   media_transformed = numpyro.deterministic(
       name="media_transformed",
       value=transform_function(media_data, **transform_kwargs))
@@ -169,6 +177,7 @@ def media_mix_model(media_data: jnp.ndarray,
       frequency=frequency,
       gamma_seasonality=gamma_seasonality)
 
+  # expo_trend is B(1, 1) so that the exponent on time is in [.5, 1.5].
   prediction = (
       intercept + beta_trend * jnp.arange(data_size) ** (expo_trend + 0.5) +
       seasonality + media_transformed.dot(beta_media))
@@ -177,6 +186,8 @@ def media_mix_model(media_data: jnp.ndarray,
       beta_extra_features = numpyro.sample("beta_extra_features",
                                            dist.Normal(loc=0., scale=1.))
     prediction += extra_features.dot(beta_extra_features)
+  if weekday_seasonality:
+    prediction += weekday_series
   mu = numpyro.deterministic(name="mu", value=prediction)
 
   numpyro.sample(

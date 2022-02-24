@@ -38,6 +38,7 @@ import functools
 import logging
 from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple
 
+from absl import logging
 import frozendict
 import jax
 import jax.numpy as jnp
@@ -96,8 +97,9 @@ class LightweightMMM:
       total_costs: jnp.ndarray,
       target: jnp.ndarray,
       extra_features: Optional[jnp.ndarray] = None,
-      degrees_seasonality: int = 3,
+      degrees_seasonality: int = 2,
       seasonality_frequency: int = 52,
+      weekday_seasonality: bool = False,
       media_names: Optional[Sequence[str]] = None,
       number_warmup: int = 1000,
       number_samples: int = 1000,
@@ -118,9 +120,11 @@ class LightweightMMM:
       target: Target KPI to use, like for example sales.
       extra_features: Other variables to add to the model.
       degrees_seasonality: Number of degrees to use for seasonality. Default is
-        3.
+        2.
       seasonality_frequency: Frequency of the time period used. Default is 52 as
         in 52 weeks per year.
+      weekday_seasonality: In case of daily data, also estimate seven weekday
+        parameters.
       media_names: Names of the media channels passed.
       number_warmup: Number of warm up samples. Default is 1000.
       number_samples: Number of samples during sampling. Default is 1000.
@@ -139,6 +143,11 @@ class LightweightMMM:
                        "number of cost values.")
     if media.min() < 0:
       raise ValueError("Media values must be greater or equal to zero.")
+
+    if weekday_seasonality and seasonality_frequency == 52:
+      logging.warn("You have chosen daily seasonality and frequency 52 "
+                   "(weekly), please check you made the right seasonality "
+                   "choices.")
 
     if extra_features is not None:
       extra_features = jnp.array(extra_features)
@@ -165,7 +174,8 @@ class LightweightMMM:
         cost_prior=jnp.array(total_costs),
         degrees_seasonality=degrees_seasonality,
         frequency=seasonality_frequency,
-        transform_function=self._model_transform_function)
+        transform_function=self._model_transform_function,
+        weekday_seasonality=weekday_seasonality)
 
     if media_names is not None:
       self.media_names = media_names
@@ -181,6 +191,7 @@ class LightweightMMM:
     self._train_media_size = train_media_size
     self._degrees_seasonality = degrees_seasonality
     self._seasonality_frequency = seasonality_frequency
+    self._weekday_seasonality = weekday_seasonality
     self.media = media
     self._extra_features = extra_features
     self._mcmc = mcmc
@@ -195,11 +206,13 @@ class LightweightMMM:
   @functools.partial(
       jax.jit,
       static_argnums=(0,),
-      static_argnames=("degrees_seasonality", "transform_function", "model"))
+      static_argnames=("degrees_seasonality", "weekday_seasonality",
+                       "transform_function", "model"))
   def _predict(self, rng_key: jnp.ndarray, media_data: jnp.ndarray,
                extra_features: Optional[jnp.ndarray], cost_prior: jnp.ndarray,
                degrees_seasonality: int, frequency: int,
                transform_function: Callable[[Any], jnp.ndarray],
+               weekday_seasonality: bool,
                model: Callable[[Any], None],
                posterior_samples: Dict[str, jnp.ndarray]
                ) -> Dict[str, jnp.ndarray]:
@@ -215,6 +228,7 @@ class LightweightMMM:
       degrees_seasonality: Number of degrees for the seasonality.
       frequency: Frequency of the seasonality.
       transform_function: Media transform function to use within the model.
+      weekday_seasonality: Allow daily weekday estimation.
       model: Numpyro model to use for numpyro.infer.Predictive.
       posterior_samples: Mapping of the posterior samples.
 
@@ -230,7 +244,8 @@ class LightweightMMM:
             target_data=None,
             degrees_seasonality=degrees_seasonality,
             frequency=frequency,
-            transform_function=transform_function)
+            transform_function=transform_function,
+            weekday_seasonality=weekday_seasonality)
 
   def predict(
       self,
@@ -303,6 +318,7 @@ class LightweightMMM:
         cost_prior=jnp.array(self._total_costs),
         degrees_seasonality=self._degrees_seasonality,
         frequency=self._seasonality_frequency,
+        weekday_seasonality=self._weekday_seasonality,
         transform_function=self._model_transform_function,
         model=self._model_function,
         posterior_samples=self.trace)["mu"][:, previous_media.shape[0]:]
