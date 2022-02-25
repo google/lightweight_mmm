@@ -17,6 +17,7 @@ import pickle
 import time
 from typing import Any, Tuple
 
+from absl import logging
 from jax import random
 import jax.numpy as jnp
 import numpy as np
@@ -100,16 +101,17 @@ def simulate_dummy_data(
     raise ValueError(
         "Data size, n_media_channels and n_extra_features must be greater than"
         " 0. Please check the values introduced are greater than zero.")
-  data_offset = int(data_size * 0.3)
+  data_offset = int(data_size * 0.2)
   data_size += data_offset
   key = random.PRNGKey(seed)
   sub_keys = random.split(key=key, num=5)
   media_data = random.normal(key=sub_keys[0],
-                             shape=(data_size, n_media_channels)) + 100
+                             shape=(data_size, n_media_channels)) * 2 + 20
 
   extra_features = random.normal(key=sub_keys[1],
                                  shape=(data_size, n_extra_features)) + 5
-  costs = media_data.sum(axis=0)
+  # Reduce the costs to make ROI realistic.
+  costs = media_data[data_offset:].sum(axis=0) * .1
 
   seasonality = media_transforms.calculate_seasonality(
       number_periods=data_size,
@@ -118,7 +120,8 @@ def simulate_dummy_data(
       gamma_seasonality=1)
   target_noise = random.normal(key=sub_keys[2], shape=(data_size,)) + 3
 
-  media_data_transformed = media_transforms.adstock(media_data)
+  # media_data_transformed = media_transforms.adstock(media_data)
+  media_data_transformed = media_transforms.carryover(media_data)
   beta_media = random.normal(key=sub_keys[3], shape=(n_media_channels,)) + 1
   beta_extra_features = random.normal(key=sub_keys[4],
                                       shape=(n_extra_features,))
@@ -126,9 +129,21 @@ def simulate_dummy_data(
   target = 10 + seasonality + media_data_transformed.dot(
       beta_media) + extra_features.dot(beta_extra_features) + target_noise
 
+  logging.info("Correlation between transformed media and target")
+  logging.info([
+      np.corrcoef(target[data_offset:], media_data_transformed[data_offset:,
+                                                               i])[0, 1]
+      for i in range(n_media_channels)
+  ])
+
+  logging.info("True ROI for media channels")
+  logging.info([
+      sum(media_data_transformed[data_offset:, i] * beta_media[i]) / costs[i]
+      for i in range(n_media_channels)
+  ])
+
   return (
       media_data[data_offset:],
       extra_features[data_offset:],
       target[data_offset:],
       costs)
-
