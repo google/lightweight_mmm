@@ -10,16 +10,52 @@ allocation as well as plotting common graphs in the field.
 It is built in [python3](https://www.python.org/) and makes use of 
 [Numpyro](https://github.com/pyro-ppl/numpyro) and [JAX](https://github.com/google/jax).
 
-## What you can do with LightweightMMM
-
+## Overview
+### What you can do with LightweightMMM
 - Scale you data for training.
 - Easily train your media mix model.
 - Evaluate your model.
 - Learn about your media attribution and ROI per media channel.
 - Optimize your budget allocation.
 
-## Installation
+### Motivation to develop and open the source code
+Some marketing practitioners pay attention to [Market Mix Model (MMM)](https://en.wikipedia.org/wiki/Marketing_mix_modeling) because of a couple of reasons. Firstly, measurement based on aggregated data is not affected by the recent ecosystem change happening in the attribution model. Secondly, advertisers and the marketing partners have the data science resources to consider in-house MMM capability to nurture their analytics capabilities and accumulate insights by themselves. Taking consideration of the emerging situations, an open-source MMM solution is launched.
 
+### The models
+
+**For larger countries we recommend a geo-based model, this is not implemented
+yet.**
+
+We estimate a **national** weekly model where we use sales revenue (y) as the KPI. All parameters will be estimated simultaneously by using MCMC sampling. Prior distribution of the paramters is preset. Users can change the prior distributions in `model.py` file if necessary. However, this is not a straight forward way and we recommend you to keep this.
+
+<img src="https://raw.githubusercontent.com/google/lightweight_mmm/main/images/main_model_formula.png" alt="model_formula"></img>
+
+Seasonality is a latent sinusoidal parameter with a repeating pattern. Default degrees of the seasonality is 2.
+
+Media parameter `beta_m` is informed by costs. It uses a HalfNormal distribution and the scale of the distribution is the total cost of each media channel.
+
+We have three different versions of the MMM with different lagging and
+saturation and we recommend you compare all three models. The Adstock and carryover
+models have an exponent for diminishing returns. The Hill functions covers that
+functionality for the Hill-Adstock model.
+
+- [Adstock](https://en.wikipedia.org/wiki/Advertising_adstock): Applies an infinite lag that decreases its weight as time passes.
+- [Hill-Adstock](https://en.wikipedia.org/wiki/Hill_equation_(biochemistry)): Applies a sigmoid like function for diminishing returns to the output of the adstock function.
+- [Carryover](https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/46001.pdf): Applies a [causal convolution](https://paperswithcode.com/method/causal-convolution) giving more weight to the near values than distant ones.
+
+Options for lagging and saturation are as follows. Users can specify the option with `model_name` parameter in `LightweightMMM` class.
+
+<img src="https://raw.githubusercontent.com/google/lightweight_mmm/main/images/formulas_per_model.png" alt="Media effect"></img>
+
+### Flow chart
+
+<img src="https://raw.githubusercontent.com/google/lightweight_mmm/main/images/flowchart.png" alt="flow_chart"></img>
+
+`LightweightMMM` is a class defined by `lightweight_mmm.py`.
+
+## Getting started
+
+### Installation
 The recommended way of installing lightweight_mmm is through PyPi:
 
 `pip install lightweight_mmm`
@@ -28,52 +64,6 @@ If you want to use the most recent and slightly less stable version you can
 install it from github:
 
 `pip install --upgrade git+https://github.com/google/lightweight_mmm.git`
-
-## The models
-
-**For larger countries we recommend a geo-based model, this is not implemented
-yet.**
-
-We estimate a **national** weekly model where we use sales revenue (y) as the KPI.
-
-<img src="https://raw.githubusercontent.com/google/lightweight_mmm/main/images/simplified_model_formula.png" alt="simplified_model_formula"></img>
-
-where `X_m` is a media matrix and `X_o` is a matrix of other exogenous variables.
-
-Seasonality is a latent sinusoidal parameter with a repeating pattern.
-
-Media parameter `beta_m` is informed by costs. It uses a HalfNormal distribution and
-the scale of the distribution is the total cost of each media channel.
-
-`sat()` is a saturation function and `lag()` is a lagging function, eg Adstock.
-Each of them can have their respective parameters.
-
-We have three different versions of the MMM with different lagging and
-saturation and we recommend you compare all three models. The Adstock and carryover
-models have an exponent for diminishing returns. The Hill functions covers that
-functionality for the Hill-Adstock model.
-- [Adstock](https://en.wikipedia.org/wiki/Advertising_adstock): Applies an infinite lag that decreases its weight as time passes.
-- [Hill-Adstock](https://en.wikipedia.org/wiki/Hill_equation_(biochemistry)): Applies a sigmoid like function for diminishing returns to the output of the adstock function.
-- [Carryover](https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/46001.pdf): Applies a [causal convolution](https://paperswithcode.com/method/causal-convolution) giving more weight to the near values than distant ones.
-
-## Scaling
-
-Scaling is a bit of an art, Bayesian techniques work well if the input data is
-small scale. We should not center variables at 0. Sales and media should have a
-lower bound of 0.
-
-1. `y` can be scaled as `y / jnp.mean(y)`.
-2. `media` can be scaled as `X_m / jnp.mean(X_m, axis=0)`, which means the new column mean will be 1.
-
-## Optimization
-
-For optimization we will maximize the sales changing the media inputs such that
-the summed cost of the media is constant. We can also allow reasonable bounds
-on each media input (eg +- x%). We only optimise across channels and not over
-time.
-
-
-## Getting started
 
 ### Preparing the data
 Here we use simulated data but it is assumed you have your data cleaned at this
@@ -84,7 +74,7 @@ point. The necessary data will be:
 - Extra features: Any other features that one might want to add to the analysis.
   These features need to be known ahead of time for optimization or you would need
   another model to estimate them.
-- Target: Target KPI for the model to predict. This will also be the metric
+- Target: Target KPI for the model to predict. For example, revenue amount, number of app installs. This will also be the metric
   optimized during the optimization phase.
 - Costs: The average cost per media unit per channel.
 
@@ -99,6 +89,9 @@ media_data, extra_features, target, costs = utils.simulate_dummy_data(
 Scaling is a bit of an art, Bayesian techniques work well if the input data is
 small scale. We should not center variables at 0. Sales and media should have a
 lower bound of 0.
+
+1. `y` can be scaled as `y / jnp.mean(y)`.
+2. `media` can be scaled as `X_m / jnp.mean(X_m, axis=0)`, which means the new column mean will be 1.
 
 We provide a `CustomScaler` which can apply multiplications and division scaling
 in case the wider used scalers don't fit your use case. Scale your data
@@ -129,10 +122,7 @@ costs = cost_scaler.fit_transform(unscaled_costs)
 ```
 
 ### Training the model
-
-The model requires the media data, the extra features, the costs of each media
-unit per channel and the target. You can also pass how many samples you would
-like to use as well as the number of chains. 
+The model requires the media data, the extra features, the costs of each media unit per channel and the target. You can also pass how many samples you would like to use as well as the number of chains.
 
 For running multiple chains in parallel the user would need to set
 `numpyro.set_host_device_count` to either the number of chains or the number of
@@ -158,18 +148,84 @@ You can switch between daily and weekly data by enabling
 of daily data we have two types of seasonality: discrete weekday and smooth
 annual.
 
-### Obtaining media effect and ROI
+### Model diagnostics
+#### Convergence Check
+Users can check convergence metrics of the parameters as follows:
 
-There are two ways of obtaining the media effect and ROI with `lightweightMMM`
-depending on if you scaled the data or not prior to training. If you did not
-scale your data you can simply call:
 ```
-mmm.get_posterior_metrics()
+mmm.print_summary()
+```
+
+The rule of thumb is that `r_hat` values for all parameters are less than 1.1.
+
+#### Fitting check
+Users can check fitting between true KPI and predicted KPI by:
+
+```
+plot.plot_model_fit(media_mix_model=mmm, target_scaler=target_scaler)
+```
+
+If `target_scaler` used for `preprocessing.CustomScaler()` is given, the target would be unscaled. Bayesian R-squared and MAPE are shown in the chart.
+
+#### Predictive check
+Users can get the prediction for the test data by:
+
+```
+prediction = mmm.predict(
+    media=media_data_test,
+    extra_features=extra_data_test,
+    target_scaler=target_scaler
+)
+```
+
+Returned prediction are distributions; if point estimates are desired, users can calculate those based on the given distribution. For example, if `data_size` of the test data is 20, `number_samples` is 1000 and `number_of_chains` is 2, `mmm.predict` returns 2000 sets of predictions with 20 data points. Users can compare the distributions with the true value of the test data and calculate the metrics such as mean and median.
+
+#### Parameter estimation check
+Users can get detail of the parameter estimation by:
+
+```
+mmm.print_summary()
+```
+
+The above returns the mean, standard deviation, median and the credible interval for each parameter. The distribution charts are provided by:
+
+```
+plot.plot_media_channel_posteriors(media_mix_model=mmm, channel_names=media_names)
+```
+
+`channel_names` specifies media names in each chart.
+
+#### Media insights
+Response curves are provided as follows:
+
+```
+plot.plot_response_curves(media_mix_model=mmm, media_scaler=media_scaler, target_scaler=target_scaler)
+```
+
+If `media_scaler` and `target_scaler` used for `preprocessing.CustomScaler()` are given, both the media and target values would be unscaled.
+
+To extract the media effectiveness and ROI estimation, users can do the following:
+
+```
+predictions, media_effect_hat, roi_hat = mmm.get_posterior_metrics()
+```
+
+`media_effect_hat` is the media effectiveness estimation and `roi_hat` is the ROI estimation. Then users can visualize the distribution of the estimation as follows:
+
+```
+plot.plot_bars_media_metrics(metric=media_effect_hat, channel_names=media_names)
+```
+
+```
+plot.plot_bars_media_metrics(metric=roi_hat, channel_names=media_names)
 ```
 
 ### Running the optimization
 
-For running the optimization one needs the following main parameters:
+For optimization we will maximize the sales changing the media inputs such that
+the summed cost of the media is constant. We can also allow reasonable bounds
+on each media input (eg +- x%). We only optimise across channels and not over
+time. For running the optimization one needs the following main parameters:
 
 - `n_time_periods`: The number of time periods you want to simulate (eg. Optimize
   for the next 10 weeks if you trained a model on weekly data).
@@ -198,6 +254,23 @@ solution = optimize_media.find_optimal_budgets(
     extra_features=extra_features_test,
     prices=prices)
 ```
+
+### Save and load the model
+Users can save and load the model as follows:
+
+```
+utils.save_model(mmm, file_path='file_path')
+```
+
+Users can specify `file_path` to save the model.
+To load a saved MMM model:
+
+```
+utils.load_model(file_path: 'file_path')
+```
+
+### Prior distribution churning (optional)
+While Lightweight MMM does not have features to apply a posterior distribution to a new model training at this moment, users can adjust parameters of the prior distributions in `model.py` and `media_transforms.py` when necessary. However, this is not a straight forward way and we recommend you to keep this.
 
 ## Run times
 
