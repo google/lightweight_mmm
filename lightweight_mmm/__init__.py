@@ -12,3 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""LightweightMMM library.
+
+Detailed documentation and examples can be found in the
+[Github repository](https://github.com/google/lightweight_mmm).
+"""
+__version__ = "0.1.1"
