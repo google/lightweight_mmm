@@ -18,8 +18,8 @@ import os
 
 from absl.testing import absltest
 from absl.testing import parameterized
-
 import jax.numpy as jnp
+import numpy as np
 
 from lightweight_mmm import lightweight_mmm
 from lightweight_mmm import utils
@@ -136,6 +136,21 @@ class UtilsTest(parameterized.TestCase):
           data_size=data_size,
           n_media_channels=n_media_channels,
           n_extra_features=n_extra_features)
+
+  def test_halfnormal_mean_and_scale(self):
+    mean = 1.
+    scale = utils.get_halfnormal_scale_from_mean(mean)
+    new_mean = utils.get_halfnormal_mean_from_scale(scale)
+    self.assertEqual(scale, mean * np.sqrt(np.pi) / np.sqrt(2))
+    self.assertEqual(mean, new_mean)
+
+  def test_beta_params_match(self):
+    a, b = 2., 3.
+    # Expected mean is 2 / 5.
+    mu = a / (a + b)
+    sigma = np.sqrt(a * b / ((a + b) ** 2 * (a + b + 1)))
+    ahat, bhat = utils.get_beta_params_from_mu_sigma(mu, sigma)
+    self.assertAlmostEqual(ahat / (ahat + bhat), 2 / 5)
 
 
 if __name__ == "__main__":

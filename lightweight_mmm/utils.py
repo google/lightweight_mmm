@@ -21,6 +21,7 @@ from absl import logging
 from jax import random
 import jax.numpy as jnp
 import numpy as np
+from scipy import optimize
 from tensorflow.io import gfile
 
 from lightweight_mmm import media_transforms
@@ -147,3 +148,40 @@ def simulate_dummy_data(
       extra_features[data_offset:],
       target[data_offset:],
       costs)
+
+
+def get_halfnormal_mean_from_scale(scale: float) -> float:
+  """Returns the mean of the half-normal distribition."""
+  # https://en.wikipedia.org/wiki/Half-normal_distribution
+  return scale * np.sqrt(2) / np.sqrt(np.pi)
+
+
+def get_halfnormal_scale_from_mean(mean: float) -> float:
+  """Returns the scale of the half-normal distribution."""
+  # https://en.wikipedia.org/wiki/Half-normal_distribution
+  return mean * np.sqrt(np.pi) / np.sqrt(2)
+
+
+def get_beta_params_from_mu_sigma(mu: float,
+                                  sigma: float,
+                                  bracket: Tuple[float, float] = (.5, 100.)
+                                  ) -> Tuple[float, float]:
+  """Deterministically estimates (a, b) from (mu, sigma) of a beta variable.
+
+  https://en.wikipedia.org/wiki/Beta_distribution
+
+  Args:
+    mu: The sample mean of the beta distributed variable.
+    sigma: The sample standard deviation of the beta distributed variable.
+    bracket: Search bracket for b.
+
+  Returns:
+    Tuple of the (a, b) parameters.
+  """
+  # Assume a = 1 to find b.
+  def _f(x):
+    return x ** 2 + 4 * x + 5 + 2 / x - 1 / sigma ** 2
+  b = optimize.root_scalar(_f, bracket=bracket, method="brentq").root
+  # Given b, now find a better a.
+  a = b / (1 / mu - 1)
+  return a, b
