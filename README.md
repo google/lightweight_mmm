@@ -1,8 +1,8 @@
-# Lightweight (Bayesian) Media Mix Model
+# Lightweight (Bayesian) Marketing Mix Modeling
 
 ##### This is not an official Google product.
 
-LightweightMMM &#129415; is a lightweight Bayesian [media mix modeling](https://en.wikipedia.org/wiki/Marketing_mix_modeling)
+LightweightMMM &#129415; is a lightweight Bayesian [Marketing Mix Modeling (MMM)](https://en.wikipedia.org/wiki/Marketing_mix_modeling)
 library that allows users to easily train MMMs and obtain channel attribution 
 information. The library also includes capabilities for optimizing media 
 allocation as well as plotting common graphs in the field.
@@ -13,13 +13,13 @@ It is built in [python3](https://www.python.org/) and makes use of
 ## Overview
 ### What you can do with LightweightMMM
 - Scale you data for training.
-- Easily train your media mix model.
+- Easily train your marketing mix model.
 - Evaluate your model.
 - Learn about your media attribution and ROI per media channel.
 - Optimize your budget allocation.
 
 ### Motivation to develop and open the source code
-Some marketing practitioners pay attention to [Market Mix Model (MMM)](https://en.wikipedia.org/wiki/Marketing_mix_modeling) because of a couple of reasons. Firstly, measurement based on aggregated data is not affected by the recent ecosystem change happening in the attribution model. Secondly, advertisers and the marketing partners have the data science resources to consider in-house MMM capability to nurture their analytics capabilities and accumulate insights by themselves. Taking consideration of the emerging situations, an open-source MMM solution is launched.
+Some marketing practitioners pay attention to [Marketing Mix Modeling (MMM)](https://en.wikipedia.org/wiki/Marketing_mix_modeling) because of a couple of reasons. Firstly, measurement based on aggregated data is not affected by the recent ecosystem change happening in the attribution model. Secondly, advertisers and the marketing partners have the data science resources to consider in-house MMM capability to nurture their analytics capabilities and accumulate insights by themselves. Taking consideration of the emerging situations, an open-source MMM solution is launched.
 
 ### The models
 
