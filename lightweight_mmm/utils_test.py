@@ -152,6 +152,34 @@ class UtilsTest(parameterized.TestCase):
     ahat, bhat = utils.get_beta_params_from_mu_sigma(mu, sigma)
     self.assertAlmostEqual(ahat / (ahat + bhat), 2 / 5)
 
+  def test_prior_posterior_distance_discrete(self):
+    p = jnp.array([0] * 2 + [1] * 3)
+    q = jnp.array([0] * 3 + [1] * 2 + [2] * 1)
+    ks = utils.distance_pior_posterior(p, q, method="KS", discrete=True)
+    js = utils.distance_pior_posterior(p, q, method="JS", discrete=True)
+    hell = utils.distance_pior_posterior(
+        p, q, method="Hellinger", discrete=True)
+    mindist = utils.distance_pior_posterior(p, q, method="min", discrete=True)
+    print(ks, js, hell, mindist)
+    self.assertAlmostEqual(ks, 1 / 6)
+    self.assertAlmostEqual(js, 0.283, 3)
+    self.assertAlmostEqual(hell, 0.325, 3)
+    self.assertAlmostEqual(mindist, 0.267, 3)
+
+  def test_prior_posterior_distance_continuous(self):
+    p = jnp.array([0] * 2 + [.5] * 3 + [1] * 2)
+    q = jnp.array([0] * 2 + [.5] * 4 + [1] * 2 + [1.5] * 3)
+    ks = utils.distance_pior_posterior(p, q, method="KS", discrete=False)
+    js = utils.distance_pior_posterior(p, q, method="JS", discrete=False)
+    hell = utils.distance_pior_posterior(
+        p, q, method="Hellinger", discrete=False)
+    mindist = utils.distance_pior_posterior(p, q, method="min", discrete=False)
+    print(ks, js, hell, mindist)
+    self.assertAlmostEqual(ks, 0.2727, 4)
+    self.assertAlmostEqual(js, 0.034, 3)
+    self.assertAlmostEqual(hell, 0.034, 3)
+    self.assertAlmostEqual(mindist, 0.041, 3)
+
 
 if __name__ == "__main__":
   absltest.main()

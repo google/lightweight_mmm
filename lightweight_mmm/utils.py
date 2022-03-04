@@ -22,6 +22,8 @@ from jax import random
 import jax.numpy as jnp
 import numpy as np
 from scipy import optimize
+from scipy import spatial
+from scipy import stats
 from tensorflow.io import gfile
 
 from lightweight_mmm import media_transforms
@@ -185,3 +187,73 @@ def get_beta_params_from_mu_sigma(mu: float,
   # Given b, now find a better a.
   a = b / (1 / mu - 1)
   return a, b
+
+
+def _estimate_pdf(p: jnp.ndarray, x: jnp.ndarray) -> jnp.ndarray:
+  """Estimates smooth pdf with Gaussian kernel.
+
+  Args:
+    p: Samples.
+    x: The continuous x space (sorted).
+
+  Returns:
+    A density vector.
+  """
+  density = sum(stats.norm(xi).pdf(x) for xi in p)
+  return density / density.sum()
+
+
+def _pmf(p: jnp.ndarray, x: jnp.ndarray) -> jnp.ndarray:
+  """Estimates discrete pmf.
+
+  Args:
+    p: Samples.
+    x: The discrete x space (sorted).
+
+  Returns:
+    A pmf vector.
+  """
+  p_cdf = jnp.array([jnp.sum(p <= x[i]) for i in range(len(x))])
+  p_pmf = np.concatenate([[p_cdf[0]], jnp.diff(p_cdf)])
+  return p_pmf / p_pmf.sum()
+
+
+def distance_pior_posterior(p: jnp.ndarray, q: jnp.ndarray, method: str = "KS",
+                            discrete: bool = True) -> float:
+  """Quantifies the distance between two distributions.
+
+  Note we do not use KL divergence because it's not defined when a probability
+  is 0.
+
+  https://en.wikipedia.org/wiki/Hellinger_distance
+
+  Args:
+    p: Samples for distribution 1.
+    q: Samples for distribution 2.
+    method: We can have four methods: KS, Hellinger, JS and min.
+    discrete: Whether input data is discrete or continuous.
+
+  Returns:
+    The distance metric (between 0 and 1).
+  """
+
+  if method == "KS":
+    # https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.ks_2samp.html
+    return stats.ks_2samp(p, q).statistic
+  elif method in ["Hellinger", "JS", "min"]:
+    if discrete:
+      x = jnp.unique(jnp.concatenate((p, q)))
+      p_pdf = _pmf(p, x)
+      q_pdf = _pmf(q, x)
+    else:
+      minx, maxx = min(p.min(), q.min()), max(p.max(), q.max())
+      x = np.linspace(minx, maxx, 100)
+      p_pdf = _estimate_pdf(p, x)
+      q_pdf = _estimate_pdf(q, x)
+  if method == "Hellinger":
+    return np.sqrt(jnp.sum((np.sqrt(p_pdf) - np.sqrt(q_pdf)) ** 2)) / np.sqrt(2)
+  elif method == "JS":
+    # https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.distance.jensenshannon.html
+    return spatial.distance.jensenshannon(p_pdf, q_pdf)
+  else:
+    return 1 - np.minimum(p_pdf, q_pdf).sum()
