@@ -137,6 +137,14 @@ class UtilsTest(parameterized.TestCase):
           n_media_channels=n_media_channels,
           n_extra_features=n_extra_features)
 
+  def test_simulate_geo_data_has_right_shape(self):
+    data_size = 100
+    geos = 3
+    media_data, _, target, _ = utils.simulate_dummy_data(
+        data_size, 2, 2, geos=geos)
+    self.assertEqual(target.shape, (data_size, geos))
+    self.assertEqual(media_data.shape, (data_size, 2, geos))
+
   def test_halfnormal_mean_and_scale(self):
     mean = 1.
     scale = utils.get_halfnormal_scale_from_mean(mean)

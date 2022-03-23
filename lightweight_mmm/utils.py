@@ -79,13 +79,14 @@ def simulate_dummy_data(
     data_size: int,
     n_media_channels: int,
     n_extra_features: int,
+    geos: int = 1,
     seed: int = 0
     ) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
   """Simulates dummy data needed for media mix modelling.
 
   This function's goal is to be super simple and not have many parameters,
   although it does not generate a fully realistic dataset is only meant to be
-  used for demos/tutorial purposes. Uses adstock for lagging but has no
+  used for demos/tutorial purposes. Uses carryover for lagging but has no
   saturation and no trend.
 
   The data simulated includes the media data, extra features, a target/KPI and
@@ -95,6 +96,7 @@ def simulate_dummy_data(
     data_size: Number of rows to generate.
     n_media_channels: Number of media channels to generate.
     n_extra_features: Number of extra features to generate.
+    geos: Number of geos for geo level data (default = 1 for national).
     seed: Random seed.
 
   Returns:
@@ -107,7 +109,7 @@ def simulate_dummy_data(
   data_offset = int(data_size * 0.2)
   data_size += data_offset
   key = random.PRNGKey(seed)
-  sub_keys = random.split(key=key, num=5)
+  sub_keys = random.split(key=key, num=7)
   media_data = random.normal(key=sub_keys[0],
                              shape=(data_size, n_media_channels)) * 2 + 20
 
@@ -144,6 +146,15 @@ def simulate_dummy_data(
       sum(media_data_transformed[data_offset:, i] * beta_media[i]) / costs[i]
       for i in range(n_media_channels)
   ])
+
+  if geos > 1:
+    # Distribute national data to geo and add some more noise.
+    weights = random.uniform(key=sub_keys[5], shape=(1, geos))
+    weights /= sum(weights)
+    target_noise = random.normal(key=sub_keys[6], shape=(data_size, geos)) * .5
+    target = target[:, np.newaxis].dot(weights) + target_noise
+    media_data = media_data[:, :, np.newaxis].dot(weights)
+    extra_features = extra_features[:, :, np.newaxis].dot(weights)
 
   return (
       media_data[data_offset:],
