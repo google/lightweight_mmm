@@ -188,6 +188,14 @@ class UtilsTest(parameterized.TestCase):
     self.assertAlmostEqual(hell, 0.034, 3)
     self.assertAlmostEqual(mindist, 0.041, 3)
 
+  def test_outlier_interpolation_straight_line(self):
+    x = np.arange(10) * 1.
+    x[3:5] += 10
+    x = jnp.array(x)
+    outlier_idx = jnp.array([3, 4])
+    new_x = utils.interpolate_outliers(x, outlier_idx)
+    self.assertTrue(all(np.equal(new_x[outlier_idx], [3, 4])))
+
 
 if __name__ == "__main__":
   absltest.main()

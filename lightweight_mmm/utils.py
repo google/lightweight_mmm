@@ -21,6 +21,7 @@ from absl import logging
 from jax import random
 import jax.numpy as jnp
 import numpy as np
+from scipy import interpolate
 from scipy import optimize
 from scipy import spatial
 from scipy import stats
@@ -268,3 +269,23 @@ def distance_pior_posterior(p: jnp.ndarray, q: jnp.ndarray, method: str = "KS",
     return spatial.distance.jensenshannon(p_pdf, q_pdf)
   else:
     return 1 - np.minimum(p_pdf, q_pdf).sum()
+
+
+def interpolate_outliers(x: jnp.ndarray,
+                         outlier_idx: jnp.ndarray) -> jnp.ndarray:
+  """Overwrites outliers in x with interpolated values.
+
+  Args:
+    x: The original univariate variable with outliers.
+    outlier_idx: Indices of the outliers in x.
+
+  Returns:
+    A cleaned x with outliers overwritten.
+
+  """
+  time_idx = jnp.arange(len(x))
+  inverse_idx = jnp.array([i for i in range(len(x)) if i not in outlier_idx])
+  interp_func = interpolate.interp1d(
+      time_idx[inverse_idx], x[inverse_idx], kind="linear")
+  x = x.at[outlier_idx].set(interp_func(time_idx[outlier_idx]))
+  return x
