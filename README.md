@@ -285,4 +285,6 @@ and 2 chains should take 6 mins per chain to estimate (on CPU machine).
 
 - [Sun, Y., Wang, Y., Jin, Y., Chan, D., & Koehler, J. (2017). Geo-level Bayesian Hierarchical Media Mix Modeling.](https://research.google/pubs/pub46000/)
 
+## Community Spotlight
 
+- [Are Marketing Mix Models Useful? I Spent My Own Money To Find Out](https://forecastegy.com/posts/marketing-mix-models/) by Mario Filho. 
