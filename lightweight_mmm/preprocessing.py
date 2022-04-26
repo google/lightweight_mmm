@@ -45,19 +45,22 @@ class CustomScaler(base.TransformerMixin):
 
   Scaler must be fit first in order to call the transform method.
 
-  Attributes:
-    divide_operation: Operation to apply at each column of the fitting data to
+  Attributes.
+    divide_operation: Operation to apply over axis 0 of the fitting data to
       obtain the value that will be used for division during scaling.
-    divide_by: Number to divide data by in the scaling process. If data has
-      multiple dimensions, divide by can be an array of the length that allows
-        to divide the data. Eg: data.shape = (100, 3), divide_by.shape = (3,).
-          If divide_operation is given, this divide_by value will be ignored.
-    multiply_operation: Operation to apply at each column of the fitting data to
+    divide_by: Numbers(s) by which to divide data in the scaling process. Since
+      the scaler is applied to axis 0 of the data, the shape of divide_by must
+      be consistent with division into the data. For example, if data.shape =
+      (100, 3, 5) then divide_by.shape can be (3, 5) or (5,) or a number. If
+      divide_operation is given, this divide_by value will be ignored.
+    multiply_operation: Operation to apply over axis 0 of the fitting data to
       obtain the value that will be used for multiplication during scaling.
-    multiply_by: Factor to multiply data by. If data has multiple dimensions,
-      multiply by can be an array of the a length that allows to divide the
-      data. Eg. data.shape = (100, 3), multiply_by.shape = (3,). If
-      multiply_operation is given, this multiply_by value will be ignored.
+    multiply_by: Numbers(s) by which to multiply data in the scaling process.
+      Since the scaler is applied to axis 0 of the data, the shape of
+      multiply_by must be consistent with multiplication into the data. For
+      example, if data.shape = (100, 3, 5) then multiply_by.shape can be (3, 5)
+      or (5,) or a number. If multiply_operation is given, this multiply_by
+      value will be ignored.
   """
 
   def __init__(
@@ -104,19 +107,13 @@ class CustomScaler(base.TransformerMixin):
       self.divide_by = jnp.apply_along_axis(
           func1d=self.divide_operation, axis=0, arr=data)
     elif isinstance(self.divide_by, int) or isinstance(self.divide_by, float):
-      if data.ndim > 1:
-        self.divide_by = jnp.repeat(self.divide_by, data.shape[1])
-      else:
-        self.divide_by = jnp.array([self.divide_by])
+      self.divide_by = self.divide_by * jnp.ones(data.shape[1:])
     if hasattr(self, "multiply_operation"):
       self.multiply_by = jnp.apply_along_axis(
           func1d=self.multiply_operation, axis=0, arr=data)
     elif isinstance(self.multiply_by, int) or isinstance(
         self.multiply_by, float):
-      if data.ndim > 1:
-        self.multiply_by = jnp.repeat(self.multiply_by, data.shape[1])
-      else:
-        self.multiply_by = jnp.array([self.multiply_by])
+      self.multiply_by = self.multiply_by * jnp.ones(data.shape[1:])
 
   def transform(self, data: jnp.ndarray) -> jnp.ndarray:
     """Applies transformation based on fitted values.

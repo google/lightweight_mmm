@@ -84,7 +84,8 @@ the `simulate_dummy_data` function in utils for this example):
 media_data, extra_features, target, costs = utils.simulate_dummy_data(
     data_size=160,
     n_media_channels=3,
-    n_extra_features=2)
+    n_extra_features=2,
+    geos=5) # Or geos=1 for national model
 ```
 Scaling is a bit of an art, Bayesian techniques work well if the input data is
 small scale. We should not center variables at 0. Sales and media should have a
