@@ -142,6 +142,9 @@ class LightweightMMM:
       raise ValueError(
           "Media data must have either 2 dims for national model or 3 for geo "
           "models.")
+    if media.ndim == 3 and total_costs.ndim == 1:
+      total_costs = jnp.expand_dims(total_costs, axis=-1)
+
     if media.shape[1] != len(total_costs):
       raise ValueError("The number of data channels provided must match the "
                        "number of cost values.")
