@@ -27,34 +27,57 @@ from lightweight_mmm import preprocessing
 
 class OptimizeMediaTest(parameterized.TestCase):
 
+  @classmethod
+  def setUpClass(cls):
+    super(OptimizeMediaTest, cls).setUpClass()
+    cls.national_mmm = lightweight_mmm.LightweightMMM()
+    cls.national_mmm.fit(
+        media=jnp.ones((50, 5)),
+        target=jnp.ones(50),
+        total_costs=jnp.ones(5) * 50,
+        number_warmup=2,
+        number_samples=2,
+        number_chains=1)
+    cls.geo_mmm = lightweight_mmm.LightweightMMM()
+    cls.geo_mmm.fit(
+        media=jnp.ones((50, 5, 3)),
+        target=jnp.ones((50, 3)),
+        total_costs=jnp.ones(5) * 50,
+        number_warmup=2,
+        number_samples=2,
+        number_chains=1)
+
   def setUp(self):
     super().setUp()
     self.mock_minimize = self.enter_context(
         mock.patch.object(optimize_media.optimize, "minimize", autospec=True))
 
-  def test_objective_function_generates_correct_value_type_and_sign(self):
-    media_shape = (30, 3)
-    media = jnp.ones(media_shape, dtype=jnp.float32)
-    extra_features = jnp.ones(media_shape)
-    target = jnp.ones(30)
-    mmm = lightweight_mmm.LightweightMMM()
-    mmm.fit(
-        media=media,
-        extra_features=extra_features,
-        target=target,
-        total_costs=jnp.ones(3),
-        number_warmup=50,
-        number_samples=50,
-        number_chains=1)
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="national",
+          model_name="national_mmm",
+          geo_ratio=1),
+      dict(
+          testcase_name="geo",
+          model_name="geo_mmm",
+          geo_ratio=np.tile(0.33, reps=(5, 3)))
+  ])
+  def test_objective_function_generates_correct_value_type_and_sign(
+      self, model_name, geo_ratio):
+
+    mmm = getattr(self, model_name)
+    extra_features = mmm._extra_features
+    time_periods = 10
 
     kpi_predicted = optimize_media._objective_function(
         extra_features=extra_features,
         media_mix_model=mmm,
-        media_input_shape=media_shape,
+        media_input_shape=(time_periods, *mmm.media.shape[1:]),
         media_gap=None,
         target_scaler=None,
         media_scaler=preprocessing.CustomScaler(),
-        media_values=jnp.ones(3) * 10,
+        media_values=jnp.ones(mmm.n_media_channels) * time_periods,
+        geo_ratio=geo_ratio,
         seed=10)
 
     self.assertIsInstance(kpi_predicted, jnp.DeviceArray)
@@ -95,59 +118,112 @@ class OptimizeMediaTest(parameterized.TestCase):
 
   @parameterized.named_parameters([
       dict(
-          testcase_name="media_scaler",
-          media_scaler=preprocessing.CustomScaler(),
-          expected_media_scaler=preprocessing.CustomScaler()),
+          testcase_name="national_media_scaler",
+          model_name="national_mmm"),
       dict(
-          testcase_name="without_media_scaler",
-          media_scaler=None,
-          expected_media_scaler=preprocessing.CustomScaler()),
+          testcase_name="geo_media_scaler",
+          model_name="geo_mmm")
   ])
-  def test_find_optimal_budgets_optimize_called_with_right_params(
-      self, media_scaler, expected_media_scaler):
+  def test_find_optimal_budgets_with_scaler_optimize_called_with_right_params(
+      self, model_name):
 
-    media_shape = (30, 3)
-    media = jnp.ones(media_shape, dtype=jnp.float64)
-    if media_scaler:
-      media = media_scaler.fit_transform(media)
-    extra_features = jnp.ones(media_shape)
-    target = jnp.ones(30)
-    mmm = lightweight_mmm.LightweightMMM()
-    mmm.fit(
-        media=media,
-        extra_features=extra_features,
-        target=target,
-        total_costs=jnp.ones(3),
-        number_warmup=50,
-        number_samples=50,
-        number_chains=1)
-
+    mmm = getattr(self, model_name)
+    media_scaler = preprocessing.CustomScaler(divide_operation=jnp.mean)
+    media_scaler.fit(2 * jnp.ones((10, *mmm.media.shape[1:])))
     optimize_media.find_optimal_budgets(
         n_time_periods=15,
         media_mix_model=mmm,
         budget=30,
-        prices=jnp.ones(3),
+        prices=jnp.ones(mmm.n_media_channels),
+        target_scaler=None,
+        media_scaler=media_scaler)
+
+    _, call_kwargs = self.mock_minimize.call_args_list[0]
+    # 15 weeks at 1.2 gives us 12. and 18. bounds times 2 (scaler) 24. and 36.
+    np.testing.assert_array_almost_equal(call_kwargs["bounds"].lb,
+                                         np.repeat(24., repeats=5) * mmm.n_geos,
+                                         decimal=3)
+    np.testing.assert_array_almost_equal(call_kwargs["bounds"].ub,
+                                         np.repeat(36., repeats=5) * mmm.n_geos,
+                                         decimal=3)
+    # We only added scaler with divide operation so we only expectec x2 in
+    # the divide_by parameter.
+    np.testing.assert_array_almost_equal(call_kwargs["fun"].args[5].divide_by,
+                                         2 * jnp.ones(mmm.media.shape[1:]),
+                                         decimal=3)
+    np.testing.assert_array_almost_equal(call_kwargs["fun"].args[5].multiply_by,
+                                         jnp.ones(mmm.media.shape[1:]),
+                                         decimal=3)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="national",
+          model_name="national_mmm"),
+      dict(
+          testcase_name="geo",
+          model_name="geo_mmm")
+  ])
+  def test_find_optimal_budgets_without_scaler_optimize_called_with_right_params(
+      self, model_name):
+
+    mmm = getattr(self, model_name)
+    optimize_media.find_optimal_budgets(
+        n_time_periods=15,
+        media_mix_model=mmm,
+        budget=30,
+        prices=jnp.ones(mmm.n_media_channels),
         target_scaler=None,
         media_scaler=None)
 
     _, call_kwargs = self.mock_minimize.call_args_list[0]
     # 15 weeks at 1.2 gives us 18. bounds
-    self.assertEqual(call_kwargs["bounds"], [(12.0, 18.0), (12.0, 18.0),
-                                             (12.0, 18.0)])
-    np.testing.assert_array_equal(call_kwargs["fun"].args[5].divide_by,
-                                  expected_media_scaler.divide_by)
-    np.testing.assert_array_equal(call_kwargs["fun"].args[5].multiply_by,
-                                  expected_media_scaler.multiply_by)
+    np.testing.assert_array_almost_equal(
+        call_kwargs["bounds"].lb,
+        np.repeat(12., repeats=5) * mmm.n_geos,
+        decimal=3)
+    np.testing.assert_array_almost_equal(
+        call_kwargs["bounds"].ub,
+        np.repeat(18., repeats=5) * mmm.n_geos,
+        decimal=3)
 
-  def test_budget_lower_than_constraints_warns_user(self):
-    mmm = lightweight_mmm.LightweightMMM()
-    mmm.fit(
-        media=jnp.ones((30, 5)) * 100,
-        target=jnp.ones(30),
-        total_costs=jnp.ones(5),
-        number_warmup=5,
-        number_samples=5,
-        number_chains=1)
+    np.testing.assert_array_almost_equal(
+        call_kwargs["fun"].args[5].divide_by,
+        jnp.ones(mmm.n_media_channels),
+        decimal=3)
+    np.testing.assert_array_almost_equal(
+        call_kwargs["fun"].args[5].multiply_by,
+        jnp.ones(mmm.n_media_channels),
+        decimal=3)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="national",
+          model_name="national_mmm"),
+      dict(
+          testcase_name="geo",
+          model_name="geo_mmm")
+  ])
+  def test_predict_called_with_right_args(self, model_name):
+    mmm = getattr(self, model_name)
+
+    optimize_media.find_optimal_budgets(
+        n_time_periods=15,
+        media_mix_model=mmm,
+        budget=30,
+        prices=jnp.ones(mmm.n_media_channels),
+        target_scaler=None,
+        media_scaler=None)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="national",
+          model_name="national_mmm"),
+      dict(
+          testcase_name="geo",
+          model_name="geo_mmm")
+  ])
+  def test_budget_lower_than_constraints_warns_user(self, model_name):
+    mmm = getattr(self, model_name)
     expected_warning = (
         "Budget given is smaller than the lower bounds of the constraints for "
         "optimization. This will lead to faulty optimization. Please either "
@@ -159,19 +235,20 @@ class OptimizeMediaTest(parameterized.TestCase):
           n_time_periods=5,
           media_mix_model=mmm,
           budget=1,
-          prices=jnp.ones(5))
+          prices=jnp.ones(mmm.n_media_channels))
     self.assertEqual(f"WARNING:absl:{expected_warning}",
                      context_manager.output[0])
 
-  def test_budget_higher_than_constraints_warns_user(self):
-    mmm = lightweight_mmm.LightweightMMM()
-    mmm.fit(
-        media=jnp.ones((30, 5)),
-        target=jnp.ones(30),
-        total_costs=jnp.ones(5),
-        number_warmup=5,
-        number_samples=5,
-        number_chains=1)
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="national",
+          model_name="national_mmm"),
+      dict(
+          testcase_name="geo",
+          model_name="geo_mmm")
+  ])
+  def test_budget_higher_than_constraints_warns_user(self, model_name):
+    mmm = getattr(self, model_name)
     expected_warning = (
         "Budget given is larger than the upper bounds of the constraints for "
         "optimization. This will lead to faulty optimization. Please either "

@@ -25,7 +25,7 @@ Some marketing practitioners pay attention to [Marketing Mix Modeling (MMM)](htt
 
 **For larger countries we recommend a geo-based model.**
 
-We estimate a **national** weekly model where we use sales revenue (y) as the KPI. All parameters will be estimated simultaneously by using MCMC sampling. Prior distribution of the parameters is preset. Users can change the prior distributions in `model.py` file if necessary. However, this is not a straight forward way and we recommend you to keep this.
+We estimate a model where we use sales revenue (y) as the KPI. All parameters will be estimated simultaneously by using MCMC sampling. Prior distribution of the parameters is preset. Users can change the prior distributions in `model.py` file if necessary. However, this is not a straight forward way and we recommend you to keep this.
 
 <img src="https://raw.githubusercontent.com/google/lightweight_mmm/main/images/main_model_formula.png" alt="model_formula"></img>
 

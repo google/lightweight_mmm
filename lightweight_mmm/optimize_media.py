@@ -14,7 +14,7 @@
 
 """Utilities for optimizing your media based on media mix models."""
 import functools
-from typing import List, Optional, Tuple, Union
+from typing import Optional, Tuple, Union
 from absl import logging
 import jax
 import jax.numpy as jnp
@@ -34,6 +34,7 @@ def _objective_function(extra_features: jnp.ndarray,
                                                  int], media_gap: Optional[int],
                         target_scaler: Optional[preprocessing.CustomScaler],
                         media_scaler: preprocessing.CustomScaler,
+                        geo_ratio: jnp.array,
                         seed: Optional[int],
                         media_values: jnp.ndarray) -> jnp.float64:
   """Objective function to calculate the sum of all predictions of the model.
@@ -53,6 +54,8 @@ def _objective_function(extra_features: jnp.ndarray,
       place correctly.
     target_scaler: Scaler that was used to scale the target before training.
     media_scaler: Scaler that was used to scale the media data before training.
+    geo_ratio: The ratio to split channel media across geo. Should sum up to 1
+      for each channel and should have shape (c, g).
     seed: Seed to use for PRNGKey during sampling. For replicability run
       this function and any other function that gets predictions with the same
       seed.
@@ -61,8 +64,11 @@ def _objective_function(extra_features: jnp.ndarray,
   Returns:
     The negative value of the sum of all predictions.
   """
+  if hasattr(media_mix_model, "n_geos") and media_mix_model.n_geos > 1:
+    media_values = geo_ratio * jnp.expand_dims(media_values, axis=-1)
   media_values = jnp.tile(
       media_values / media_input_shape[0], reps=media_input_shape[0])
+  # Distribute budget of each channels across time.
   media_values = jnp.reshape(a=media_values, newshape=media_input_shape)
   media_values = media_scaler.transform(media_values)
   return -jnp.sum(
@@ -75,7 +81,8 @@ def _objective_function(extra_features: jnp.ndarray,
 
 
 @jax.jit
-def _budget_constraint(media: jnp.ndarray, prices: jnp.ndarray,
+def _budget_constraint(media: jnp.ndarray,
+                       prices: jnp.ndarray,
                        budget: jnp.ndarray) -> jnp.float64:
   """Calculates optimization constraint to keep spend equal to the budget.
 
@@ -94,10 +101,10 @@ def _budget_constraint(media: jnp.ndarray, prices: jnp.ndarray,
 def _get_lower_and_upper_bounds(
     media: jnp.ndarray,
     n_time_periods: int,
-    lower_pct: float,
-    upper_pct: float,
+    lower_pct: jnp.ndarray,
+    upper_pct: jnp.ndarray,
     media_scaler: Optional[preprocessing.CustomScaler] = None
-) -> List[Tuple[float, float]]:
+) -> optimize.Bounds:
   """Gets the lower and upper bounds for optimisation based on historic data.
 
   It creates an upper bound based on a percentage above the maximum value on
@@ -117,13 +124,21 @@ def _get_lower_and_upper_bounds(
   Returns:
     A list of tuples with the lower and upper bound for each media channel.
   """
-  lower_bounds = jnp.maximum(media.min(axis=0) *
-                             (1 - lower_pct), 0) * n_time_periods
-  upper_bounds = (media.max(axis=0) * (1 + upper_pct)) * n_time_periods
+  if media.ndim == 3:
+    lower_pct = jnp.expand_dims(lower_pct, axis=-1)
+    upper_pct = jnp.expand_dims(upper_pct, axis=-1)
+  lower_bounds = jnp.maximum(media.min(axis=0) * (1 - lower_pct), 0)
+  upper_bounds = media.max(axis=0) * (1 + upper_pct)
   if media_scaler:
     lower_bounds = media_scaler.inverse_transform(lower_bounds)
     upper_bounds = media_scaler.inverse_transform(upper_bounds)
-  return list(zip(lower_bounds.tolist(), upper_bounds.tolist()))
+
+  if media.ndim == 3:
+    lower_bounds = lower_bounds.sum(axis=-1)
+    upper_bounds = upper_bounds.sum(axis=-1)
+
+  return optimize.Bounds(lb=lower_bounds * n_time_periods,
+                         ub=upper_bounds * n_time_periods)
 
 
 def _generate_starting_values(
@@ -150,8 +165,11 @@ def _generate_starting_values(
       optimization.
   """
   previous_allocation = media.mean(axis=0) * n_time_periods
-  if media_scaler:
+  if media_scaler:  # Scale before sum as geo scaler has shape (c, g).
     previous_allocation = media_scaler.inverse_transform(previous_allocation)
+
+  if media.ndim == 3:
+    previous_allocation = previous_allocation.sum(axis=-1)
 
   multiplier = budget / previous_allocation.sum()
   return previous_allocation * multiplier
@@ -168,7 +186,7 @@ def find_optimal_budgets(
     media_scaler: Optional[preprocessing.CustomScaler] = None,
     bounds_lower_pct: Union[float, jnp.ndarray] = .2,
     bounds_upper_pct: Union[float, jnp.ndarray] = .2,
-    max_iterations: int = 500,
+    max_iterations: int = 200,
     seed: Optional[int] = None) -> optimize.OptimizeResult:
   """Finds the best media allocation based on MMM model, prices and a budget.
 
@@ -218,14 +236,13 @@ def find_optimal_budgets(
       lower_pct=bounds_lower_pct,
       upper_pct=bounds_upper_pct,
       media_scaler=media_scaler)
-
-  if sum([lower_bound for lower_bound, _ in bounds]) > budget:
+  if jnp.sum(bounds.lb * prices) > budget:
     logging.warning(
         "Budget given is smaller than the lower bounds of the constraints for "
         "optimization. This will lead to faulty optimization. Please either "
         "increase the budget or change the lower bound by increasing the "
         "percentage decrease with the `bounds_lower_pct` parameter.")
-  if sum([upper_bound for _, upper_bound in bounds]) < budget:
+  if jnp.sum(bounds.ub * prices) < budget:
     logging.warning(
         "Budget given is larger than the upper bounds of the constraints for "
         "optimization. This will lead to faulty optimization. Please either "
@@ -236,15 +253,19 @@ def find_optimal_budgets(
                                               media=media_mix_model.media,
                                               media_scaler=media_scaler,
                                               budget=budget)
-
   if not media_scaler:
     media_scaler = preprocessing.CustomScaler(multiply_by=1, divide_by=1)
-  media_input_shape = (n_time_periods, media_mix_model.n_media_channels)
+  if media_mix_model.n_geos == 1:
+    geo_ratio = 1.0
+  else:
+    average_per_time = media_mix_model.media.mean(axis=0)
+    geo_ratio = average_per_time / jnp.expand_dims(
+        average_per_time.sum(axis=-1), axis=-1)
+  media_input_shape = (n_time_periods, *media_mix_model.media.shape[1:])
   partial_objective_function = functools.partial(
       _objective_function, extra_features, media_mix_model,
       media_input_shape, media_gap,
-      target_scaler, media_scaler, seed)
-
+      target_scaler, media_scaler, geo_ratio, seed)
   solution = optimize.minimize(
       fun=partial_objective_function,
       x0=starting_values,
@@ -267,6 +288,7 @@ def find_optimal_budgets(
                                           target_scaler=target_scaler,
                                           media_scaler=media_scaler,
                                           seed=seed,
+                                          geo_ratio=geo_ratio,
                                           media_values=starting_values)
   logging.info("KPI without optimization: %r", -1 * kpi_without_optim.item())
   logging.info("KPI with optimization: %r", -1 * solution.fun)

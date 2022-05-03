@@ -76,6 +76,7 @@ class LightweightMMM:
   Attributes:
     trace: Sampling trace of the bayesian model once fitted.
     n_media_channels: Number of media channels the model was trained with.
+    n_geos: Number of geos for geo models or 1 for national models.
     model_name: Name of the model.
     media: The media data the model is trained on. Usefull for a variety of
       insights post model fitting.
@@ -189,6 +190,7 @@ class LightweightMMM:
     else:
       self.media_names = [f"channel_{i}" for i in range(media.shape[1])]
     self.n_media_channels = media.shape[1]
+    self.n_geos = media.shape[2] if media.ndim == 3 else 1
     self._total_costs = total_costs
     self.trace = mcmc.get_samples()
     self._number_warmup = number_warmup
