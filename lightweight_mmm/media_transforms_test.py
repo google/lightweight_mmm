@@ -27,28 +27,28 @@ class MediaTransformsTest(parameterized.TestCase):
 
   @parameterized.named_parameters([
       dict(
-          testcase_name="four_channels",
+          testcase_name="2d_four_channels",
           data=np.ones((100, 4)),
           ad_effect_retention_rate=np.array([0.9, 0.8, 0.7, 1]),
           peak_effect_delay=np.array([0.9, 0.8, 0.7, 1]),
           number_lags=5),
       dict(
-          testcase_name="one_channels",
+          testcase_name="2d_one_channel",
           data=np.ones((300, 1)),
           ad_effect_retention_rate=np.array([0.2]),
           peak_effect_delay=np.array([1]),
           number_lags=10),
       dict(
-          testcase_name="fifteen_channels",
-          data=np.ones((100, 15)),
-          ad_effect_retention_rate=np.ones(15),
-          peak_effect_delay=np.ones(15),
+          testcase_name="3d_10channels_10geos",
+          data=np.ones((100, 10, 10)),
+          ad_effect_retention_rate=np.ones(10),
+          peak_effect_delay=np.ones(10),
           number_lags=13),
       dict(
-          testcase_name="zeros",
-          data=np.zeros((100, 15)),
-          ad_effect_retention_rate=np.ones(15),
-          peak_effect_delay=np.ones(15),
+          testcase_name="3d_10channels_8geos",
+          data=np.ones((100, 10, 8)),
+          ad_effect_retention_rate=np.ones(10),
+          peak_effect_delay=np.ones(10),
           number_lags=13),
   ])
   def test_carryover_produces_correct_shape(self, data,
@@ -63,54 +63,55 @@ class MediaTransformsTest(parameterized.TestCase):
 
   @parameterized.named_parameters([
       dict(
-          testcase_name="three_channels",
-          data=np.ones((300, 3)),
+          testcase_name="2d_three_channels",
+          data=np.ones((100, 3)),
           half_max_effective_concentration=np.array([0.9, 0.8, 0.7]),
           slope=np.array([2, 2, 1])),
       dict(
-          testcase_name="one_channels",
-          data=np.ones((300, 1)),
+          testcase_name="2d_one_channels",
+          data=np.ones((100, 1)),
           half_max_effective_concentration=np.array([0.9]),
           slope=np.array([5])),
       dict(
-          testcase_name="ten_channels",
-          data=np.ones((300, 10)),
-          half_max_effective_concentration=np.ones(10),
-          slope=np.ones(10)),
+          testcase_name="3d_10channels_5geos",
+          data=np.ones((100, 10, 5)),
+          half_max_effective_concentration=np.expand_dims(np.ones(10), axis=-1),
+          slope=np.expand_dims(np.ones(10), axis=-1)),
       dict(
-          testcase_name="zeros",
-          data=np.zeros((300, 10)),
-          half_max_effective_concentration=np.ones(10),
-          slope=np.ones(10)),
+          testcase_name="3d_8channels_10geos",
+          data=np.ones((100, 8, 10)),
+          half_max_effective_concentration=np.expand_dims(np.ones(8), axis=-1),
+          slope=np.expand_dims(np.ones(8), axis=-1)),
   ])
   def test_hill_produces_correct_shape(self, data,
                                        half_max_effective_concentration, slope):
-    generated_output = media_transforms.hill(data,
-                                             half_max_effective_concentration,
-                                             slope)
+    generated_output = media_transforms.hill(
+        data=data,
+        half_max_effective_concentration=half_max_effective_concentration,
+        slope=slope)
 
     self.assertEqual(generated_output.shape, data.shape)
 
   @parameterized.named_parameters([
       dict(
-          testcase_name="five_channels",
+          testcase_name="2d_five_channels",
           data=np.ones((100, 5)),
           lag_weight=np.array([0.2, 0.3, 0.8, 0.2, 0.1]),
           normalise=True),
       dict(
-          testcase_name="one_channels",
+          testcase_name="2d_one_channels",
           data=np.ones((100, 1)),
           lag_weight=np.array([0.4]),
           normalise=False),
       dict(
-          testcase_name="ten_channels",
-          data=np.ones((100, 10)),
-          lag_weight=np.ones(10),
+          testcase_name="3d_10channels_5geos",
+          data=np.ones((100, 10, 5)),
+          lag_weight=np.expand_dims(np.ones(10), axis=-1),
           normalise=True),
       dict(
-          testcase_name="zeros",
-          data=np.zeros((100, 10)),
-          lag_weight=np.ones(10),
+          testcase_name="3d_8channels_10geos",
+          data=np.ones((100, 8, 10)),
+          lag_weight=np.expand_dims(np.ones(8), axis=-1),
           normalise=True),
   ])
   def test_adstock_produces_correct_shape(self, data, lag_weight, normalise):

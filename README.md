@@ -12,21 +12,20 @@ It is built in [python3](https://www.python.org/) and makes use of
 
 ## Overview
 ### What you can do with LightweightMMM
-- Scale you data for training.
 - Easily train your marketing mix model.
 - Evaluate your model.
 - Learn about your media attribution and ROI per media channel.
 - Optimize your budget allocation.
+- Scale you data for training.
 
 ### Motivation to develop and open the source code
-Some marketing practitioners pay attention to [Marketing Mix Modeling (MMM)](https://en.wikipedia.org/wiki/Marketing_mix_modeling) because of a couple of reasons. Firstly, measurement based on aggregated data is not affected by the recent ecosystem change happening in the attribution model. Secondly, advertisers and the marketing partners have the data science resources to consider in-house MMM capability to nurture their analytics capabilities and accumulate insights by themselves. Taking consideration of the emerging situations, an open-source MMM solution is launched.
+Some marketing practitioners pay attention to [Marketing Mix Modeling (MMM)](https://en.wikipedia.org/wiki/Marketing_mix_modeling) because of a couple of reasons. Firstly, measurement based on aggregated data is not affected by the recent ecosystem changes (some related to privacy) happening in the attribution model. Secondly, advertisers and their marketing partners have the data science resources to consider in-house MMM capability to nurture their analytics capabilities and accumulate insights by themselves. Taking consideration of the emerging situations, an open-source MMM solution is launched.
 
 ### The models
 
-**For larger countries we recommend a geo-based model, this is not implemented
-yet.**
+**For larger countries we recommend a geo-based model.**
 
-We estimate a **national** weekly model where we use sales revenue (y) as the KPI. All parameters will be estimated simultaneously by using MCMC sampling. Prior distribution of the paramters is preset. Users can change the prior distributions in `model.py` file if necessary. However, this is not a straight forward way and we recommend you to keep this.
+We estimate a **national** weekly model where we use sales revenue (y) as the KPI. All parameters will be estimated simultaneously by using MCMC sampling. Prior distribution of the parameters is preset. Users can change the prior distributions in `model.py` file if necessary. However, this is not a straight forward way and we recommend you to keep this.
 
 <img src="https://raw.githubusercontent.com/google/lightweight_mmm/main/images/main_model_formula.png" alt="model_formula"></img>
 
@@ -208,7 +207,7 @@ If `media_scaler` and `target_scaler` used for `preprocessing.CustomScaler()` ar
 To extract the media effectiveness and ROI estimation, users can do the following:
 
 ```
-predictions, media_effect_hat, roi_hat = mmm.get_posterior_metrics()
+media_effect_hat, roi_hat = mmm.get_posterior_metrics()
 ```
 
 `media_effect_hat` is the media effectiveness estimation and `roi_hat` is the ROI estimation. Then users can visualize the distribution of the estimation as follows:

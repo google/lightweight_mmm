@@ -42,7 +42,6 @@ from absl import logging
 import frozendict
 import jax
 import jax.numpy as jnp
-import numpy as np
 import numpyro
 from numpyro import infer
 
@@ -114,7 +113,8 @@ class LightweightMMM:
     respective function in the models.py file.
 
     Args:
-      media: Media input data.
+      media: Media input data. Media data must have either 2 dims for national
+        model or 3 for geo models.
       total_costs: Costs of each media channel. The number of cost values must
         be equal to the number of media channels.
       target: Target KPI to use, like for example sales.
@@ -138,6 +138,10 @@ class LightweightMMM:
       seed: Seed to use for PRNGKey during training. For better replicability
         run all different trainings with the same seed.
     """
+    if media.ndim not in (2, 3):
+      raise ValueError(
+          "Media data must have either 2 dims for national model or 3 for geo "
+          "models.")
     if media.shape[1] != len(total_costs):
       raise ValueError("The number of data channels provided must match the "
                        "number of cost values.")
@@ -296,7 +300,7 @@ class LightweightMMM:
         previous_extra_features = jnp.concatenate(
             arrays=[
                 self._extra_features,
-                jnp.zeros((media_gap.shape[0], extra_features.shape[1]))
+                jnp.zeros((media_gap.shape[0], *self._extra_features.shape[1:]))
             ],
             axis=0)
     else:
@@ -351,10 +355,10 @@ class LightweightMMM:
 
   def get_posterior_metrics(
       self,
-      unscaled_costs: Optional[np.ndarray] = None,
+      unscaled_costs: Optional[jnp.ndarray] = None,
       cost_scaler: Optional[preprocessing.CustomScaler] = None,
       target_scaler: Optional[preprocessing.CustomScaler] = None
-  ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+  ) -> Tuple[jnp.ndarray, jnp.ndarray]:
     """It estimates the media effect and ROI of each channel.
 
     If data was scaled prior to training then the target and costs scalers need
@@ -370,8 +374,6 @@ class LightweightMMM:
       target_scaler: Scaler that was used to scale the target before training.
 
     Returns:
-      predictions: The mean of the posterior distribution for the taget's mean
-        parameter. If target scaler is provided predictions are unscaled.
       media_effect_hat: The average media effect for each channel.
       roi_hat: The return on investment of each channel calculated as its effect
         divided by the cost.
@@ -399,18 +401,24 @@ class LightweightMMM:
       else:
         unscaled_costs = self._total_costs
 
-    predictions = self.trace["mu"].mean(axis=1)
     if target_scaler:
-      predictions = target_scaler.inverse_transform(predictions)
-    # s for samples, d for data (time dim), c for channels (media channels)
-    effect = jnp.einsum("sdc, sc -> sc", self.trace["media_transformed"],
-                        self.trace["beta_media"])
-    percent_change = effect / self._target.sum()
-
-    if target_scaler:
-      unscaled_target_sum = target_scaler.inverse_transform(self._target).sum()
+      unscaled_target = target_scaler.inverse_transform(self._target)
     else:
-      unscaled_target_sum = self._target.sum()
+      unscaled_target = self._target
 
+    if self.media.ndim == 2:
+      # s for samples, t for time, c for media channels
+      einsum_str = "stc, sc -> sc"
+      scaled_target_sum = self._target.sum()
+      unscaled_target_sum = unscaled_target.sum()
+    elif self.media.ndim == 3:
+      # s for samples, t for time, c for media channels, g for geo
+      einsum_str = "stcg, scg -> scg"
+      scaled_target_sum = self._target.sum(axis=0)
+      unscaled_target_sum = unscaled_target.sum(axis=0)
+
+    effect = jnp.einsum(einsum_str, self.trace["media_transformed"],
+                        jnp.squeeze(self.trace["beta_media"]))
+    percent_change = effect / scaled_target_sum
     roi_hat = unscaled_target_sum * percent_change / unscaled_costs
-    return predictions, percent_change, roi_hat
+    return percent_change, roi_hat

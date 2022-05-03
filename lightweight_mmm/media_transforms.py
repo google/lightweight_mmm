@@ -115,9 +115,10 @@ def hill(data: jnp.ndarray, half_max_effective_concentration: jnp.ndarray,
   return 1. / (1 + save_transform)
 
 
-@functools.partial(jax.vmap, in_axes=(1, 1, None))
-def carryover_convolve(data: jnp.ndarray, weights: jnp.ndarray,
-                       number_lags: int) -> jnp.ndarray:
+@functools.partial(jax.vmap, in_axes=(1, 1, None), out_axes=1)
+def _carryover_convolve(data: jnp.ndarray,
+                        weights: jnp.ndarray,
+                        number_lags: int) -> jnp.ndarray:
   """Applies the convolution between the data and the weights for the carryover.
 
   Args:
@@ -132,10 +133,10 @@ def carryover_convolve(data: jnp.ndarray, weights: jnp.ndarray,
   return jax.scipy.signal.convolve(data, window, mode="same") / weights.sum()
 
 
-@functools.partial(jax.jit, static_argnums=[3])
+@functools.partial(jax.jit, static_argnames=("number_lags",))
 def carryover(data: jnp.ndarray,
-              ad_effect_retention_rate: Union[float, jnp.ndarray] = .5,
-              peak_effect_delay: Union[float, jnp.ndarray] = 1.,
+              ad_effect_retention_rate: jnp.ndarray,
+              peak_effect_delay: jnp.ndarray,
               number_lags: int = 13) -> jnp.ndarray:
   """Calculates media carryover.
 
@@ -143,7 +144,8 @@ def carryover(data: jnp.ndarray,
   https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/46001.pdf
 
   Args:
-    data: Input data.
+    data: Input data. It is expected that data has either 2 dimensions for
+      national models and 3 for geo models.
     ad_effect_retention_rate: Retention rate of the advertisement effect.
       Default is 0.5.
     peak_effect_delay: Delay of the peak effect in the carryover function.
@@ -154,18 +156,25 @@ def carryover(data: jnp.ndarray,
   Returns:
     The carryover values for the given data with the given parameters.
   """
-  lags_arange = jnp.repeat(
-      jnp.arange(number_lags, dtype=jnp.float32),
-      data.shape[1]).reshape(number_lags, data.shape[1])
+  lags_arange = jnp.expand_dims(jnp.arange(number_lags, dtype=jnp.float32),
+                                axis=-1)
+  convolve_func = _carryover_convolve
+  if data.ndim == 3:
+    # Since _carryover_convolve is already vmaped in the decorator we only need
+    # to vmap it once here to handle the geo level data. We keep the windows bi
+    # dimensional also for three dims data and vmap over only the extra data
+    # dimension.
+    convolve_func = jax.vmap(
+        fun=_carryover_convolve, in_axes=(2, None, None), out_axes=2)
   weights = ad_effect_retention_rate**((lags_arange - peak_effect_delay)**2)
-  return jnp.transpose(carryover_convolve(data, weights, number_lags))
+  return convolve_func(data, weights, number_lags)
 
 
 def apply_exponent_safe(
     data: jnp.ndarray,
     exponent: jnp.ndarray
     ) -> jnp.ndarray:
-  """Applies an eponent to given data in a gradient safe way.
+  """Applies an exponent to given data in a gradient safe way.
 
   More info on the double jnp.where can be found:
   https://github.com/tensorflow/probability/blob/main/discussion/where-nan.pdf
