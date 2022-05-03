@@ -244,7 +244,7 @@ See below and example of optimization:
 
 ```
 # Run media optimization.
-budget = 40
+budget = 40 # your budget here
 prices = np.array([0.1, 0.11, 0.12])
 extra_features_test = extra_features_scaler.transform(extra_features_test)
 solution = optimize_media.find_optimal_budgets(
