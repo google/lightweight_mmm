@@ -62,8 +62,7 @@ def _make_single_prediction(media_mix_model: lightweight_mmm.LightweightMMM,
 
 @functools.partial(
     jax.jit,
-    static_argnames=("media_mix_model", "target_scaler",
-                     "apply_log_scale"))
+    static_argnames=("media_mix_model", "target_scaler"))
 def _generate_diagonal_predictions(
     media_mix_model: lightweight_mmm.LightweightMMM,
     media_values: jnp.ndarray,
