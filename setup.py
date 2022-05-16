@@ -19,7 +19,7 @@ from setuptools import setup
 
 install_requires = [
     "absl-py",
-    "arviz",
+    "arviz==0.11.2",
     "dataclasses;python_version<'3.7'",
     "frozendict",
     "jax>=0.3.0",
@@ -28,8 +28,8 @@ install_requires = [
     "numpy>=1.12",
     "numpyro>=0.8.0",
     "scipy",
-    "seaborn",
-    "sklearn",
+    "seaborn==0.11.1",
+    "sklearn==1.0.2",
     "tensorflow==2.5.3"
 ]
 
