@@ -29,7 +29,7 @@ install_requires = [
     "numpyro>=0.8.0",
     "scipy",
     "seaborn==0.11.1",
-    "sklearn==1.0.2",
+    "sklearn",
     "tensorflow==2.5.3"
 ]
 
