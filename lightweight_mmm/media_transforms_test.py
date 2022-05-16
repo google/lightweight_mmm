@@ -149,5 +149,39 @@ class MediaTransformsTest(parameterized.TestCase):
     self.assertFalse(np.isnan(grads).any())
     self.assertFalse(np.isinf(grads).any())
 
+  def test_adstock_zeros_stay_zeros(self):
+    data = jnp.zeros((10, 5))
+    lag_weight = jnp.full(5, 0.5)
+
+    generated_output = media_transforms.adstock(
+        data=data, lag_weight=lag_weight)
+
+    np.testing.assert_array_equal(x=generated_output, y=data)
+
+  def test_hill_zeros_stay_zeros(self):
+    data = jnp.zeros((10, 5))
+    half_max_effective_concentration = jnp.full(5, 0.5)
+    slope = jnp.full(5, 0.5)
+
+    generated_output = media_transforms.hill(
+        data=data,
+        half_max_effective_concentration=half_max_effective_concentration,
+        slope=slope)
+
+    np.testing.assert_array_equal(x=generated_output, y=data)
+
+  def test_carryover_zeros_stay_zeros(self):
+    data = jnp.zeros((10, 5))
+    ad_effect_retention_rate = jnp.full(5, 0.5)
+    peak_effect_delay = jnp.full(5, 0.5)
+
+    generated_output = media_transforms.carryover(
+        data=data,
+        ad_effect_retention_rate=ad_effect_retention_rate,
+        peak_effect_delay=peak_effect_delay)
+
+    np.testing.assert_array_equal(x=generated_output, y=data)
+
+
 if __name__ == "__main__":
   absltest.main()

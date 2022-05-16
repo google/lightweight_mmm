@@ -112,7 +112,7 @@ def hill(data: jnp.ndarray, half_max_effective_concentration: jnp.ndarray,
   """
   save_transform = apply_exponent_safe(
       data=data / half_max_effective_concentration, exponent=-slope)
-  return 1. / (1 + save_transform)
+  return jnp.where(save_transform == 0, x=0, y=1. / (1 + save_transform))
 
 
 @functools.partial(jax.vmap, in_axes=(1, 1, None), out_axes=1)
