@@ -211,7 +211,7 @@ def find_optimal_budgets(
     bounds_upper_pct: Relative percentage increase from the max value to
       consider as new upper bound.
     max_iterations: Number of max iterations to use for the SLSQP scipy
-      optimizer. Default is 500.
+      optimizer. Default is 200.
     seed: Seed to use for PRNGKey during sampling. For replicability run
       this function and any other function that gets predictions with the same
       seed.
