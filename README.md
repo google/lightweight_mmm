@@ -19,19 +19,31 @@ It is built in [python3](https://www.python.org/) and makes use of
 - Scale you data for training.
 
 ### Motivation to develop and open the source code
-Some marketing practitioners pay attention to [Marketing Mix Modeling (MMM)](https://en.wikipedia.org/wiki/Marketing_mix_modeling) because of a couple of reasons. Firstly, measurement based on aggregated data is not affected by the recent ecosystem changes (some related to privacy) happening in the attribution model. Secondly, advertisers and their marketing partners have the data science resources to consider in-house MMM capability to nurture their analytics capabilities and accumulate insights by themselves. Taking consideration of the emerging situations, an open-source MMM solution is launched.
+Some marketing practitioners pay attention to [Marketing Mix Modeling (MMM)](https://en.wikipedia.org/wiki/Marketing_mix_modeling)
+because of a couple of reasons. Firstly, measurement based on aggregated data is
+not affected by the recent ecosystem changes (some related to privacy) happening
+in the attribution model. Secondly, advertisers and their marketing partners have
+the data science resources to consider in-house MMM capability to nurture their
+analytics capabilities and accumulate insights by themselves. Taking consideration
+of the emerging situations, an open-source MMM solution is launched.
 
 ### The models
 
 **For larger countries we recommend a geo-based model.**
 
-We estimate a model where we use sales revenue (y) as the KPI. All parameters will be estimated simultaneously by using MCMC sampling. Prior distribution of the parameters is preset. Users can change the prior distributions in `model.py` file if necessary. However, this is not a straight forward way and we recommend you to keep this.
+We estimate a model where we use sales revenue (y) as the KPI. All parameters
+will be estimated simultaneously by using MCMC sampling. Prior distribution of
+the parameters is preset. Users can change the prior distributions in `model.py`
+file if necessary. However, this is not a straight forward way and we recommend
+you to keep this.
 
 <img src="https://raw.githubusercontent.com/google/lightweight_mmm/main/images/main_model_formula.png" alt="model_formula"></img>
 
-Seasonality is a latent sinusoidal parameter with a repeating pattern. Default degrees of the seasonality is 2.
+Seasonality is a latent sinusoidal parameter with a repeating pattern. Default
+degrees of the seasonality is 2.
 
-Media parameter `beta_m` is informed by costs. It uses a HalfNormal distribution and the scale of the distribution is the total cost of each media channel.
+Media parameter `beta_m` is informed by costs. It uses a HalfNormal distribution
+and the scale of the distribution is the total cost of each media channel.
 
 We have three different versions of the MMM with different lagging and
 saturation and we recommend you compare all three models. The Adstock and carryover
@@ -121,8 +133,14 @@ target_train = target_scaler.fit_transform(target_train)
 costs = cost_scaler.fit_transform(unscaled_costs)
 ```
 
+In case you have a variable that has a lot of 0s you can also scale by the mean
+of non zero values. For instance you can use a lambda function to do this:
+`lambda x: jnp.mean(x[x > 0])`. The same applies for cost scaling.
+
 ### Training the model
-The model requires the media data, the extra features, the costs of each media unit per channel and the target. You can also pass how many samples you would like to use as well as the number of chains.
+The model requires the media data, the extra features, the costs of each media
+unit per channel and the target. You can also pass how many samples you would
+like to use as well as the number of chains.
 
 For running multiple chains in parallel the user would need to set
 `numpyro.set_host_device_count` to either the number of chains or the number of
@@ -165,7 +183,8 @@ Users can check fitting between true KPI and predicted KPI by:
 plot.plot_model_fit(media_mix_model=mmm, target_scaler=target_scaler)
 ```
 
-If `target_scaler` used for `preprocessing.CustomScaler()` is given, the target would be unscaled. Bayesian R-squared and MAPE are shown in the chart.
+If `target_scaler` used for `preprocessing.CustomScaler()` is given, the target
+would be unscaled. Bayesian R-squared and MAPE are shown in the chart.
 
 #### Predictive check
 Users can get the prediction for the test data by:
@@ -178,7 +197,12 @@ prediction = mmm.predict(
 )
 ```
 
-Returned prediction are distributions; if point estimates are desired, users can calculate those based on the given distribution. For example, if `data_size` of the test data is 20, `number_samples` is 1000 and `number_of_chains` is 2, `mmm.predict` returns 2000 sets of predictions with 20 data points. Users can compare the distributions with the true value of the test data and calculate the metrics such as mean and median.
+Returned prediction are distributions; if point estimates are desired, users
+can calculate those based on the given distribution. For example, if `data_size`
+of the test data is 20, `number_samples` is 1000 and `number_of_chains` is 2,
+`mmm.predict` returns 2000 sets of predictions with 20 data points. Users can
+compare the distributions with the true value of the test data and calculate
+the metrics such as mean and median.
 
 #### Parameter estimation check
 Users can get detail of the parameter estimation by:
@@ -187,7 +211,8 @@ Users can get detail of the parameter estimation by:
 mmm.print_summary()
 ```
 
-The above returns the mean, standard deviation, median and the credible interval for each parameter. The distribution charts are provided by:
+The above returns the mean, standard deviation, median and the credible interval
+for each parameter. The distribution charts are provided by:
 
 ```
 plot.plot_media_channel_posteriors(media_mix_model=mmm, channel_names=media_names)
@@ -270,7 +295,10 @@ utils.load_model(file_path: 'file_path')
 ```
 
 ### Prior distribution churning (optional)
-While Lightweight MMM does not have features to apply a posterior distribution to a new model training at this moment, users can adjust parameters of the prior distributions in `model.py` and `media_transforms.py` when necessary. However, this is not a straight forward way and we recommend you to keep this.
+While Lightweight MMM does not have features to apply a posterior distribution to
+a new model training at this moment, users can adjust parameters of the prior
+distributions in `model.py` and `media_transforms.py` when necessary. However,
+this is not a straight forward way and we recommend you to keep this.
 
 ## Run times
 
