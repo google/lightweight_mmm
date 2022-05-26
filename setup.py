@@ -30,7 +30,7 @@ install_requires = [
     "scipy",
     "seaborn==0.11.1",
     "sklearn",
-    "tensorflow==2.5.3"
+    "tensorflow==2.7.2"
 ]
 
 setup(
