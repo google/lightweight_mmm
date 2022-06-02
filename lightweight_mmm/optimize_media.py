@@ -187,6 +187,7 @@ def find_optimal_budgets(
     bounds_lower_pct: Union[float, jnp.ndarray] = .2,
     bounds_upper_pct: Union[float, jnp.ndarray] = .2,
     max_iterations: int = 200,
+    starting_values: jnp.ndarray = None,
     seed: Optional[int] = None) -> optimize.OptimizeResult:
   """Finds the best media allocation based on MMM model, prices and a budget.
 
@@ -249,10 +250,11 @@ def find_optimal_budgets(
         "reduce the budget or change the upper bound by increasing the "
         "percentage increase with the `bounds_upper_pct` parameter.")
 
-  starting_values = _generate_starting_values(n_time_periods=n_time_periods,
-                                              media=media_mix_model.media,
-                                              media_scaler=media_scaler,
-                                              budget=budget)
+  if not starting_values:
+    starting_values = _generate_starting_values(n_time_periods=n_time_periods,
+                                                media=media_mix_model.media,
+                                                media_scaler=media_scaler,
+                                                budget=budget)
   if not media_scaler:
     media_scaler = preprocessing.CustomScaler(multiply_by=1, divide_by=1)
   if media_mix_model.n_geos == 1:
