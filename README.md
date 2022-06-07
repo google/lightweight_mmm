@@ -1,3 +1,5 @@
+<img align="left" width="120" height="120" src="https://raw.githubusercontent.com/google/lightweight_mmm/main/images/lightweight_mmm_logo_colored_250.png" alt="lightweight_mmm_logo_colored_250"></img>
+
 # Lightweight (Bayesian) Marketing Mix Modeling
 
 [![PyPI](https://img.shields.io/pypi/v/lightweight_mmm?logo=pypi&logoColor=white&style=flat-square)](https://pypi.org/project/lightweight_mmm/)
