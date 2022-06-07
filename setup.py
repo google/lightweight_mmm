@@ -14,8 +14,36 @@
 
 """Setup for lightweight_mmm value package."""
 
+import os
+
 from setuptools import find_packages
 from setuptools import setup
+
+_CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def _get_readme():
+  try:
+    readme = open(
+        os.path.join(_CURRENT_DIR, "README.md"), encoding="utf-8").read()
+  except OSError:
+    readme = ""
+  return readme
+
+
+def _get_version():
+  with open(os.path.join(_CURRENT_DIR, "lightweight_mmm", "__init__.py")) as fp:
+    for line in fp:
+      if line.startswith("__version__") and "=" in line:
+        version = line[line.find("=") + 1:].strip(" '\"\n")
+        if version:
+          return version
+    raise ValueError(
+        "`__version__` not defined in `lightweight_mmm/__init__.py`")
+
+
+_VERSION = _get_version()
+_README = _get_readme()
 
 install_requires = [
     "absl-py",
@@ -35,13 +63,16 @@ install_requires = [
 
 setup(
     name="lightweight_mmm",
-    version="0.1.2",
+    version=_VERSION,
     description="Package for Media-Mix-Modelling",
+    long_description="\n".join([_README]),
+    long_description_content_type="text/markdown",
     author="Google LLC",
     author_email="no-reply@google.com",
     license="Apache 2.0",
     packages=find_packages(),
     install_requires=install_requires,
+    url="https://github.com/google/lightweight_mmm",
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
