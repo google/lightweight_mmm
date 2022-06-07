@@ -1,5 +1,7 @@
 # Lightweight (Bayesian) Marketing Mix Modeling
 
+[![PyPI](https://img.shields.io/pypi/v/lightweight_mmm?logo=pypi&logoColor=white&style=flat-square)](https://pypi.org/project/lightweight_mmm/)
+
 ##### This is not an official Google product.
 
 LightweightMMM &#129415; is a lightweight Bayesian [Marketing Mix Modeling (MMM)](https://en.wikipedia.org/wiki/Marketing_mix_modeling)
