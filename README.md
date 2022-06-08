@@ -71,12 +71,15 @@ Options for lagging and saturation are as follows. Users can specify the option 
 ## Getting started
 
 ### Installation
+
 The recommended way of installing lightweight_mmm is through PyPi:
 
-`pip install lightweight_mmm`
+```
+pip install --upgrade pip
+pip install lightweight_mmm
+```
 
-If you want to use the most recent and slightly less stable version you can 
-install it from github:
+If you want to use the most recent and slightly less stable version you can install it from github:
 
 `pip install --upgrade git+https://github.com/google/lightweight_mmm.git`
 
