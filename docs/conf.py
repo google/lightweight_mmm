@@ -55,8 +55,6 @@ extensions = [
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
     'nbsphinx',
-    'recommonmark',
-    'codediff',
     'sphinx_markdown_tables'
 ]
 
