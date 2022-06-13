@@ -42,24 +42,19 @@ def _get_version():
         "`__version__` not defined in `lightweight_mmm/__init__.py`")
 
 
+def _parse_requirements(path):
+
+  with open(os.path.join(_CURRENT_DIR, path)) as f:
+    return [
+        line.rstrip()
+        for line in f
+        if not (line.isspace() or line.startswith("#"))
+    ]
+
 _VERSION = _get_version()
 _README = _get_readme()
-
-install_requires = [
-    "absl-py",
-    "arviz==0.11.2",
-    "dataclasses;python_version<'3.7'",
-    "frozendict",
-    "jax>=0.3.0",
-    "jaxlib>=0.3.0",
-    "matplotlib==3.3.4",
-    "numpy>=1.12",
-    "numpyro>=0.8.0",
-    "scipy",
-    "seaborn==0.11.1",
-    "sklearn",
-    "tensorflow==2.7.2"
-]
+_INSTALL_REQUIREMENTS = _parse_requirements(os.path.join(
+    _CURRENT_DIR, "requirements", "requirements.txt"))
 
 setup(
     name="lightweight_mmm",
@@ -71,7 +66,7 @@ setup(
     author_email="no-reply@google.com",
     license="Apache 2.0",
     packages=find_packages(),
-    install_requires=install_requires,
+    install_requires=_INSTALL_REQUIREMENTS,
     url="https://github.com/google/lightweight_mmm",
     classifiers=[
         "Development Status :: 3 - Alpha",

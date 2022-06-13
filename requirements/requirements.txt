@@ -12,17 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Read the Docs configuration file
-# See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
-version: 2
-sphinx:
-  builder: html
-  configuration: docs/conf.py
-  fail_on_warning: false
-python:
-  version: 3.7
-  install:
-    - requirements: requirements/requirements-docs.txt
-    - requirements: requirements/requirements.txt
-    - method: setuptools
-      path: .
+absl-py
+arviz==0.11.2
+dataclasses;python_version<'3.7'
+frozendict
+jax>=0.3.0
+jaxlib>=0.3.0
+matplotlib==3.3.4
+numpy>=1.12
+numpyro>=0.8.0
+scipy
+seaborn==0.11.1
+sklearn
+tensorflow==2.7.2
