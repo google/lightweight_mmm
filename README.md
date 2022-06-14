@@ -2,6 +2,7 @@
 
 # Lightweight (Bayesian) Marketing Mix Modeling
 
+[![Read the Docs](https://img.shields.io/readthedocs/lightweight_mmm?label=ReadTheDocs&logo=readthedocs&logoColor=white&style=flat-square)](https://lightweight-mmm.readthedocs.io/en/latest/)
 [![PyPI](https://img.shields.io/pypi/v/lightweight_mmm?logo=pypi&logoColor=white&style=flat-square)](https://pypi.org/project/lightweight_mmm/)
 
 ##### This is not an official Google product.
