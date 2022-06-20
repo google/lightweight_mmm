@@ -1,36 +1,38 @@
 <img align="left" width="120" height="120" src="https://raw.githubusercontent.com/google/lightweight_mmm/main/images/lightweight_mmm_logo_colored_250.png" alt="lightweight_mmm_logo_colored_250"></img>
 
 # Lightweight (Bayesian) Marketing Mix Modeling
-
-[![Read the Docs](https://img.shields.io/readthedocs/lightweight_mmm?label=ReadTheDocs&logo=readthedocs&logoColor=white&style=flat-square)](https://lightweight-mmm.readthedocs.io/en/latest/)
-[![PyPI](https://img.shields.io/pypi/v/lightweight_mmm?logo=pypi&logoColor=white&style=flat-square)](https://pypi.org/project/lightweight_mmm/)
-
+### LMMM is a python library that helps organisations understand and optimise marketing spend across media channels.
 ##### This is not an official Google product.
+  
+[![PyPI](https://img.shields.io/pypi/v/lightweight_mmm?logo=pypi&logoColor=white&style=flat-square)](https://pypi.org/project/lightweight_mmm/)
+<a href="https://github.com/google/lightweight_mmm/commits/master"><img src="https://img.shields.io/github/last-commit/google/lightweight_mmm.svg?style=plasticr"/></a>
+[![Read the Docs](https://img.shields.io/readthedocs/lightweight_mmm?label=ReadTheDocs&logo=readthedocs&logoColor=white&style=flat-square)](https://lightweight-mmm.readthedocs.io/en/latest/)
+[![Downloads](https://pepy.tech/badge/lightweight-mmm)](https://pepy.tech/project/lightweight-mmm)
 
-LightweightMMM &#129415; is a lightweight Bayesian [Marketing Mix Modeling (MMM)](https://en.wikipedia.org/wiki/Marketing_mix_modeling)
-library that allows users to easily train MMMs and obtain channel attribution 
-information. The library also includes capabilities for optimizing media 
-allocation as well as plotting common graphs in the field.
+[Docs](https://lightweight-mmm.readthedocs.io/en/latest/) •
+[Introduction](#introduction) •
+[Theory](#theory) •
+[Getting Started](#getting-started) •
+[References](#references) •
+[Community Spotlight](#community-spotlight)
+  
+## Introduction
 
-It is built in [python3](https://www.python.org/) and makes use of 
-[Numpyro](https://github.com/pyro-ppl/numpyro) and [JAX](https://github.com/google/jax).
+[Marketing Mix Modeling (MMM)](https://en.wikipedia.org/wiki/Marketing_mix_modeling) is used by advertisers to measure advertising effectiveness and inform budget allocation decisions across media channels. Measurement based on aggregated data allows comparison across online and offline channels in addition to being unaffected by recent ecosystem changes (some related to privacy) which may affect attribution modelling. MMM allows you to:
 
-## Overview
-### What you can do with LightweightMMM
-- Easily train your marketing mix model.
-- Evaluate your model.
-- Learn about your media attribution and ROI per media channel.
-- Optimize your budget allocation.
-- Scale you data for training.
+- Estimate the optimal budget allocation across media channels.
+- Understand how media channels perform with a change in spend.
+- Investigate effects on your target KPI (such as sales) by media channel.
 
-### Motivation to develop and open the source code
-Some marketing practitioners pay attention to [Marketing Mix Modeling (MMM)](https://en.wikipedia.org/wiki/Marketing_mix_modeling)
-because of a couple of reasons. Firstly, measurement based on aggregated data is
-not affected by the recent ecosystem changes (some related to privacy) happening
-in the attribution model. Secondly, advertisers and their marketing partners have
-the data science resources to consider in-house MMM capability to nurture their
-analytics capabilities and accumulate insights by themselves. Taking consideration
-of the emerging situations, an open-source MMM solution is launched.
+Taking a Bayesian approach to MMM allows an advertiser to integrate prior information into modelling, allowing you to:
+
+- Utilise information from industry experience or previous media mix models using Bayesian priors.
+- Report on both parameter and model uncertainty and propagate it to your budget optimisation.
+- Construct hierarchical models, with generally tighter credible intervals, using breakout dimensions such as geography.
+
+The LightweightMMM package (built using [Numpyro](https://github.com/pyro-ppl/numpyro) and [JAX](https://github.com/google/jax)) helps advertisers easily build Bayesian MMM models by providing the functionality to appropriately scale data, evaluate models, optimise budget allocations and plot common graphs used in the field.
+
+## Theory
 
 ### The models
 
@@ -308,11 +310,6 @@ a new model training at this moment, users can adjust parameters of the prior
 distributions in `model.py` and `media_transforms.py` when necessary. However,
 this is not a straight forward way and we recommend you to keep this.
 
-## Run times
-
-A model with 5 media variables and 1 other variable and 150 weeks, 1500 draws
-and 2 chains should take 6 mins per chain to estimate (on CPU machine).
-
 ## References
 
 - [Jin, Y., Wang, Y., Sun, Y., Chan, D., & Koehler, J. (2017). Bayesian Methods for Media Mix Modeling with Carryover and Shape Effects. Google Inc.](https://research.google/pubs/pub46001/)
@@ -323,4 +320,6 @@ and 2 chains should take 6 mins per chain to estimate (on CPU machine).
 
 ## Community Spotlight
 
-- [Are Marketing Mix Models Useful? I Spent My Own Money To Find Out](https://forecastegy.com/posts/marketing-mix-models/) by Mario Filho. 
+- [Are Marketing Mix Models Useful? I Spent My Own Money To Find Out](https://forecastegy.com/posts/marketing-mix-models/) by Mario Filho.
+
+- [How Google LightweightMMM Works](https://getrecast.com/google-lightweightmmm/) by Mike Taylor.
