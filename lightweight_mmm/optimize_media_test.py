@@ -264,6 +264,33 @@ class OptimizeMediaTest(parameterized.TestCase):
     self.assertEqual(f"WARNING:absl:{expected_warning}",
                      context_manager.output[0])
 
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="national",
+          model_name="national_mmm",
+          expected_len=3),
+      dict(
+          testcase_name="geo",
+          model_name="geo_mmm",
+          expected_len=3)
+  ])
+  def test_find_optimal_budgets_has_right_output_length_datatype(
+      self, model_name, expected_len):
+
+    mmm = getattr(self, model_name)
+    media_scaler = preprocessing.CustomScaler(divide_operation=jnp.mean)
+    media_scaler.fit(2 * jnp.ones((10, *mmm.media.shape[1:])))
+    results = optimize_media.find_optimal_budgets(
+        n_time_periods=15,
+        media_mix_model=mmm,
+        budget=30,
+        prices=jnp.ones(mmm.n_media_channels),
+        target_scaler=None,
+        media_scaler=media_scaler)
+    self.assertLen(results, expected_len)
+    self.assertIsInstance(results[1], jnp.DeviceArray)
+    self.assertIsInstance(results[2], jnp.DeviceArray)
+
 
 if __name__ == "__main__":
   absltest.main()

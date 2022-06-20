@@ -141,12 +141,9 @@ def _get_lower_and_upper_bounds(
                          ub=upper_bounds * n_time_periods)
 
 
-def _generate_starting_values(
-    n_time_periods: int,
-    media: jnp.ndarray,
-    media_scaler: preprocessing.CustomScaler,
-    budget: Union[float, int]
-    ) -> jnp.ndarray:
+def _generate_starting_values(n_time_periods: int, media: jnp.ndarray,
+                              media_scaler: preprocessing.CustomScaler,
+                              budget: Union[float, int]) -> jnp.ndarray:
   """Generates starting values based on historic allocation and budget.
 
   In order to make a comparison we can take the allocation of the last
@@ -217,7 +214,11 @@ def find_optimal_budgets(
       seed.
 
   Returns:
-    OptimizeResult object containing the results of the optimization.
+    solution: OptimizeResult object containing the results of the optimization.
+    kpi_without_optim: Predicted target based on original allocation proportion
+    among channels from the historical data.
+    starting_values: Budget Allocation based on original allocation proportion
+    and the given total budget.
   """
   if not hasattr(media_mix_model, "media"):
     raise ValueError(
@@ -249,10 +250,11 @@ def find_optimal_budgets(
         "reduce the budget or change the upper bound by increasing the "
         "percentage increase with the `bounds_upper_pct` parameter.")
 
-  starting_values = _generate_starting_values(n_time_periods=n_time_periods,
-                                              media=media_mix_model.media,
-                                              media_scaler=media_scaler,
-                                              budget=budget)
+  starting_values = _generate_starting_values(
+      n_time_periods=n_time_periods,
+      media=media_mix_model.media,
+      media_scaler=media_scaler,
+      budget=budget)
   if not media_scaler:
     media_scaler = preprocessing.CustomScaler(multiply_by=1, divide_by=1)
   if media_mix_model.n_geos == 1:
@@ -294,4 +296,5 @@ def find_optimal_budgets(
   logging.info("KPI with optimization: %r", -1 * solution.fun)
 
   jax.config.update("jax_enable_x64", False)
-  return solution
+  # TODO(yukaabe): Create an object to contain the results of this function.
+  return solution, kpi_without_optim, starting_values

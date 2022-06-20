@@ -47,6 +47,7 @@ class PlotTest(parameterized.TestCase):
         number_warmup=2,
         number_samples=2,
         number_chains=1)
+    cls.not_fitted_mmm = lightweight_mmm.LightweightMMM()
 
   def setUp(self):
     super().setUp()
@@ -56,19 +57,18 @@ class PlotTest(parameterized.TestCase):
         mock.patch.object(plot.sns, "lineplot", autospec=True))
     self.mock_plt_plot = self.enter_context(
         mock.patch.object(plot.plt.Axes, "plot", autospec=True))
-
+    self.mock_plt_barplot = self.enter_context(
+        mock.patch.object(plot.plt.Axes, "bar", autospec=True))
   @parameterized.named_parameters([
       dict(
           testcase_name="national",
           media_mix_model="national_mmm",
           expected_calls=1),
-      dict(
-          testcase_name="geo",
-          media_mix_model="geo_mmm",
-          expected_calls=2)
+      dict(testcase_name="geo", media_mix_model="geo_mmm", expected_calls=2)
   ])
-  def test_plot_model_fit_plot_called_with_scaler(
-      self, media_mix_model, expected_calls):
+
+  def test_plot_model_fit_plot_called_with_scaler(self, media_mix_model,
+                                                  expected_calls):
     target_scaler = preprocessing.CustomScaler(divide_operation=jnp.mean)
     target_scaler.fit(jnp.ones(1))
     mmm = getattr(self, media_mix_model)
@@ -260,6 +260,55 @@ class PlotTest(parameterized.TestCase):
     with self.assertRaises(ValueError):
       plot.plot_out_of_sample_model_fit(prediction, ground_truth)
 
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="national",
+          media_mix_model="national_mmm",
+          expected_calls=3),
+      dict(testcase_name="geo", media_mix_model="geo_mmm", expected_calls=3)
+  ])
+  def test_plot_pre_post_budget_allocation_comparison_n_times_with_correct_params(
+      self, media_mix_model, expected_calls):
+    mmm = getattr(self, media_mix_model)
+    kpi_with_optim = -503
+    kpi_without_optim = -479
+    optimal_buget_allocation = jnp.array([118, 278, 100, 100, 100])
+    previous_budget_allocation = jnp.array([199, 197, 100, 100, 100])
+
+    plot.plot_pre_post_budget_allocation_comparison(
+        media_mix_model=mmm,
+        kpi_with_optim=kpi_with_optim,
+        kpi_without_optim=kpi_without_optim,
+        optimal_buget_allocation=optimal_buget_allocation,
+        previous_budget_allocation=previous_budget_allocation)
+
+    self.assertEqual(self.mock_plt_barplot.call_count, expected_calls)
+    call_list = self.mock_plt_barplot.call_args_list
+
+    np.testing.assert_array_almost_equal(call_list[0][0][-1],
+                                         previous_budget_allocation)
+    np.testing.assert_array_almost_equal(call_list[1][0][-1],
+                                         optimal_buget_allocation)
+    np.testing.assert_array_almost_equal(
+        call_list[2][0][-1], [kpi_without_optim * -1, kpi_with_optim * -1])
+
+  @parameterized.named_parameters([
+      dict(testcase_name="national and geo", media_mix_model="not_fitted_mmm")
+  ])
+  def test_plot_pre_post_budget_allocation_comparison_raise_notfittedmodelerror(
+      self, media_mix_model):
+    mmm = getattr(self, media_mix_model)
+    kpi_with_optim = -503
+    kpi_without_optim = -479
+    optimal_buget_allocation = jnp.array([118, 278, 100, 100, 100])
+    previous_budget_allocation = jnp.array([199, 197, 100, 100, 100])
+    with self.assertRaises(lightweight_mmm.NotFittedModelError):
+      plot.plot_pre_post_budget_allocation_comparison(
+          media_mix_model=mmm,
+          kpi_with_optim=kpi_with_optim,
+          kpi_without_optim=kpi_without_optim,
+          optimal_buget_allocation=optimal_buget_allocation,
+          previous_budget_allocation=previous_budget_allocation)
 
 if __name__ == "__main__":
   absltest.main()

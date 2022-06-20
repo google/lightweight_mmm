@@ -42,6 +42,7 @@ Plot
     plot_out_of_sample_model_fit
     plot_media_channel_posteriors
     plot_bars_media_metrics
+    plot_pre_post_budget_allocation_comparison
 
 .. autofunction:: plot_response_curves
 .. autofunction:: plot_cross_correlate
@@ -50,6 +51,7 @@ Plot
 .. autofunction:: plot_out_of_sample_model_fit
 .. autofunction:: plot_media_channel_posteriors
 .. autofunction:: plot_bars_media_metrics
+.. autofunction:: plot_pre_post_budget_allocation_comparison
 
 Models
 =======

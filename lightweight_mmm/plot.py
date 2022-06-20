@@ -640,3 +640,128 @@ def plot_bars_media_metrics(
   )
   plt.close()
   return fig
+
+
+def plot_pre_post_budget_allocation_comparison(
+    media_mix_model: lightweight_mmm.LightweightMMM,
+    kpi_with_optim: jnp.ndarray,
+    kpi_without_optim: jnp.ndarray,
+    optimal_buget_allocation: jnp.ndarray,
+    previous_budget_allocation: jnp.ndarray,
+    channel_names: Optional[Sequence[Any]] = None,
+    figure_size: Tuple[int, int] = (20, 10)
+) -> matplotlib.figure.Figure:
+  """Plots a barcharts to compare pre & post budget allocation.
+
+  Args:
+    media_mix_model: Media mix model to use for the optimization.
+    kpi_with_optim: Negative predicted target variable with optimized budget
+      allocation.
+    kpi_without_optim: negative predicted target variable with original budget
+      allocation proportion base on the historical data.
+    optimal_buget_allocation: Optmized budget allocation.
+    previous_budget_allocation: Starting budget allocation based on original
+      budget allocation proportion.
+    channel_names: Names of media channels to be added to plot.
+    figure_size: size of the plot.
+
+  Returns:
+    Barplots of budget allocation across media channels pre & post optimization.
+  """
+
+  if not hasattr(media_mix_model, "trace"):
+    raise lightweight_mmm.NotFittedModelError(
+        "Model needs to be fit first before attempting to plot its fit.")
+
+  previous_budget_allocation_pct = previous_budget_allocation / jnp.sum(
+      previous_budget_allocation)
+  optimized_budget_allocation_pct = optimal_buget_allocation / jnp.sum(
+      optimal_buget_allocation)
+
+  if channel_names is None:
+    channel_names = media_mix_model.media_names
+  x_axis = np.arange(len(channel_names))
+
+  pre_optimizaiton_predicted_target = kpi_without_optim * -1
+  post_optimization_predictiond_target = kpi_with_optim * -1
+  predictions = [
+      pre_optimizaiton_predicted_target, post_optimization_predictiond_target
+  ]
+
+  # create bar chart
+  fig, axes = plt.subplots(2, 1, figsize=figure_size)
+
+  plots1 = axes[0].bar(
+      x_axis - 0.2,
+      previous_budget_allocation,
+      width=0.4,
+      label="previous budget allocation")
+  plots2 = axes[0].bar(
+      x_axis + 0.2,
+      optimal_buget_allocation,
+      width=0.4,
+      label="optmized buget allocation")
+  axes[0].set_ylabel("Budget Allocation", fontsize="x-large")
+  axes[0].set_title(
+      "Before and After Optimization Budget Allocation Comparison",
+      fontsize="x-large")
+  # Iterrating over the bars one-by-one
+  for bar_i in range(len(plots1.patches)):
+    bar = plots1.patches[bar_i]
+    axes[0].annotate(
+        "{:.0%}".format(previous_budget_allocation_pct[bar_i]),
+        (bar.get_x() + bar.get_width() / 2, bar.get_height()),
+        ha="center",
+        va="center",
+        size=10,
+        xytext=(0, 8),
+        textcoords="offset points")
+
+  # Iterrating over the bars one-by-one
+  for bar_i in range(len(plots2.patches)):
+    bar = plots2.patches[bar_i]
+    axes[0].annotate(
+        "{:.0%}".format(optimized_budget_allocation_pct[bar_i]),
+        (bar.get_x() + bar.get_width() / 2, bar.get_height()),
+        ha="center",
+        va="center",
+        size=10,
+        xytext=(0, 8),
+        textcoords="offset points")
+
+  axes[0].set_xticks(x_axis)
+  axes[0].set_xticklabels(channel_names, fontsize="medium")
+  axes[0].legend(fontsize="medium")
+
+  plots3 = axes[1].bar([
+      "pre optimization predictited target",
+      "post optimization predicted target"
+  ], predictions)
+  axes[1].set_ylim(
+      min(predictions) - min(predictions) * 0.1,
+      max(predictions) + min(predictions) * 0.1)
+  axes[1].set_ylabel("Predicted Target Variable", fontsize="x-large")
+  axes[1].set_title(
+      "Pre Post Optimization Target Variable Comparison", fontsize="x-large")
+  axes[1].set_xticks(range(2))
+  axes[1].set_xticklabels([
+      "pre optimization predictited target",
+      "post optimization predicted target"
+  ],
+                          fontsize="x-large")
+
+  # Iterrating over the bars one-by-one
+  for bar_i in range(len(plots3.patches)):
+    bar = plots3.patches[bar_i]
+    axes[1].annotate(
+        "{:,.1f}".format(predictions[bar_i]),
+        (bar.get_x() + bar.get_width() / 2, bar.get_height()),
+        ha="center",
+        va="center",
+        size=10,
+        xytext=(0, 8),
+        textcoords="offset points")
+
+  plt.tight_layout()
+  plt.close()
+  return fig
