@@ -21,6 +21,7 @@ jaxlib>=0.3.0
 matplotlib==3.3.4
 numpy>=1.12
 numpyro>=0.8.0
+pandas>=1.1.5
 scipy
 seaborn==0.11.1
 sklearn

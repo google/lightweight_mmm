@@ -15,17 +15,19 @@
 """Set of utilities for LightweighMMM package."""
 import pickle
 import time
-from typing import Any, Tuple
+from typing import Any, List, Optional, Tuple
 
 from absl import logging
 from jax import random
 import jax.numpy as jnp
 import numpy as np
+import pandas as pd
 from scipy import interpolate
 from scipy import optimize
 from scipy import spatial
 from scipy import stats
 from tensorflow.io import gfile
+from typing_extensions import Literal
 
 from lightweight_mmm import media_transforms
 
@@ -160,11 +162,102 @@ def simulate_dummy_data(
     media_data = media_data[:, :, np.newaxis].dot(weights)
     extra_features = extra_features[:, :, np.newaxis].dot(weights)
 
-  return (
-      media_data[data_offset:],
-      extra_features[data_offset:],
-      target[data_offset:],
-      costs)
+  return (media_data[data_offset:], extra_features[data_offset:],
+          target[data_offset:], costs)
+
+
+def _split_array_into_list(
+    dataframe: pd.DataFrame, split_level_feature: str, features: List[str],
+    array_dimension: Literal["2d", "3d"] = "3d") -> List[np.ndarray]:
+  """Splits data frame into list of jax arrays.
+
+  Args:
+    dataframe: Dataframe with all the modeling feature.
+    split_level_feature: Feature that will be used to split.
+    features: List of feature to export from data frame.
+    array_dimension: Dimension of the jax array.
+
+  Returns:
+    List of jax arrays.
+  """
+  if array_dimension not in ["3d", "2d"]:
+    raise ValueError("Array dimension has to be either 2d or 3d.")
+  split_level = dataframe[split_level_feature].unique()
+  array_list_by_level = [
+      dataframe.loc[dataframe[split_level_feature] == level, features].values.T
+      for level in split_level
+  ]
+  if array_dimension == "3d":
+    feature_array = jnp.stack(array_list_by_level)
+  else:
+    feature_array_3d = jnp.stack(array_list_by_level).T
+    feature_array = feature_array_3d.reshape(feature_array_3d.shape[0],
+                                             feature_array_3d.shape[2])
+  return feature_array
+
+
+def dataframe_to_jax(
+    dataframe: pd.DataFrame,
+    media_features: List[str],
+    extra_features: List[str],
+    geo_feature: str,
+    date_feature: str,
+    target: str,
+    cost_features: Optional[List[str]] = None
+    ) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+  """Converts pandas dataframe to right data format for media mix model.
+
+  This function's goal is to convert dataframe which is most familar with data
+  scientists to jax arrays to help the users who are not familar with array to
+  use the lightweight MMM library easier.
+
+  Args:
+    dataframe: Dataframe with geo, KPI, media and non-media features.
+    media_features: List of media feature names.
+    extra_features: List of non media feature names.
+    geo_feature: Geo feature name.
+    date_feature: Date feature name.
+    target: Target variables name.
+    cost_features: List of media cost variables and it is optional if user
+      use actual media cost as their media features in the model.
+
+  Returns:
+    Media, extra features, target and costs arrays.
+
+  Raises:
+    ValueError: If each geo has unequal number of weeks.
+  """
+
+  count_by_geo = dataframe.groupby(
+      geo_feature)[date_feature].count().reset_index()
+  unique_date_count = count_by_geo[date_feature].nunique()
+  if unique_date_count != 1:
+    raise ValueError("Not all the geos have same number of weeks.")
+
+  df_sorted = dataframe.sort_values(by=date_feature)
+  media_features_data = _split_array_into_list(
+      dataframe=df_sorted,
+      split_level_feature=date_feature,
+      features=media_features)
+
+  extra_features_data = _split_array_into_list(
+      dataframe=df_sorted,
+      split_level_feature=date_feature,
+      features=extra_features)
+
+  target_data = _split_array_into_list(
+      dataframe=df_sorted,
+      split_level_feature=geo_feature,
+      features=[target],
+      array_dimension="2d")
+
+  if cost_features:
+    cost_data = jnp.dot(
+        jnp.full(len(dataframe), 1), dataframe[cost_features].values)
+  else:
+    cost_data = jnp.dot(
+        jnp.full(len(dataframe), 1), dataframe[media_features].values)
+  return (media_features_data, extra_features_data, target_data, cost_data)
 
 
 def get_halfnormal_mean_from_scale(scale: float) -> float:

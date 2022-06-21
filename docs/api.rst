@@ -95,6 +95,7 @@ Utils
     get_beta_params_from_mu_sigma
     distance_pior_posterior
     interpolate_outliers
+    dataframe_to_jax
 
 .. autofunction:: save_model
 .. autofunction:: load_model
@@ -104,3 +105,4 @@ Utils
 .. autofunction:: get_beta_params_from_mu_sigma
 .. autofunction:: distance_pior_posterior
 .. autofunction:: interpolate_outliers
+.. autofunction:: dataframe_to_jax
