@@ -30,6 +30,13 @@ pip install --upgrade git+https://github.com/google/lightweight_mmm.git
 
 
 .. toctree::
+   :caption: Model Documentation
+   :maxdepth: 1
+
+   models
+
+
+.. toctree::
    :caption: API Documentation
    :maxdepth: 2
 
