@@ -3,7 +3,7 @@
 # Lightweight (Bayesian) Marketing Mix Modeling
 ### LMMM is a python library that helps organisations understand and optimise marketing spend across media channels.
 ##### This is not an official Google product.
-
+  
 [![PyPI](https://img.shields.io/pypi/v/lightweight_mmm?logo=pypi&logoColor=white&style=flat-square)](https://pypi.org/project/lightweight_mmm/)
 <a href="https://github.com/google/lightweight_mmm/commits/master"><img src="https://img.shields.io/github/last-commit/google/lightweight_mmm.svg?style=plasticr"/></a>
 [![Read the Docs](https://img.shields.io/readthedocs/lightweight_mmm?label=ReadTheDocs&logo=readthedocs&logoColor=white&style=flat-square)](https://lightweight-mmm.readthedocs.io/en/latest/)
@@ -15,7 +15,7 @@
 [Getting Started](#getting-started) •
 [References](#references) •
 [Community Spotlight](#community-spotlight)
-
+  
 ## Introduction
 
 [Marketing Mix Modeling (MMM)](https://en.wikipedia.org/wiki/Marketing_mix_modeling) is used by advertisers to measure advertising effectiveness and inform budget allocation decisions across media channels. Measurement based on aggregated data allows comparison across online and offline channels in addition to being unaffected by recent ecosystem changes (some related to privacy) which may affect attribution modelling. MMM allows you to:
@@ -34,34 +34,42 @@ The LightweightMMM package (built using [Numpyro](https://github.com/pyro-ppl/nu
 
 ## Theory
 
-### Simplified Model Overview
+### The models
 
-An MMM quantifies the relationship between media channel activity  and sales, while controlling for other factors. A simplified model overview is shown below and the full model is set out in the [model documentation](https://lightweight-mmm.readthedocs.io/en/latest/models.html). An MMM is typically run using weekly level observations (e.g. the KPI could be sales per week), however, it can also be run at the daily level.
+**For larger countries we recommend a geo-based model.**
 
-$$kpi = \alpha + trend + seasonality + media\_channels + other\_factors $$
+We estimate a model where we use sales revenue (y) as the KPI. All parameters
+will be estimated simultaneously by using MCMC sampling. Prior distribution of
+the parameters is preset. Users can change the prior distributions in `model.py`
+file if necessary. However, this is not a straight forward way and we recommend
+you to keep this.
 
-Where $$kpi$$ is typically the volume or value of sales per time period, $$\alpha$$ is the model intercept, $$trend$$ is a flexible non-linear function that captures trends in the data, $$seasonality$$ is a sinusoidal function with configurable parameters that flexibly captures seasonal trends, $$media\_channels$$ is a matrix of different media channel activity (typically impressions or costs per time period) which receive transformations depending on the model used (see Media Saturation and Lagging section) and $$other\_factors$$ is a matrix of other factors that could influence sales.
+<img src="https://raw.githubusercontent.com/google/lightweight_mmm/main/images/main_model_formula.png" alt="model_formula"></img>
 
-### Standard and Hierarchical models
+Seasonality is a latent sinusoidal parameter with a repeating pattern. Default
+degrees of the seasonality is 2.
 
-The LightweightMMM can either be run using data aggregated at the national level (standard approach) or using data aggregated at a sub-national level (hierarchical approach).
+Media parameter `beta_m` is informed by costs. It uses a HalfNormal distribution
+and the scale of the distribution is the total cost of each media channel.
 
-1. **National level (standard approach).** This approach is appropriate if the data available is only aggregated at the national level (e.g. The KPI could be national sales per time period). This is the most common format used in MMMs.
-
-2. **Geo level (sub-national hierarchical approach).** This approach is appropriate if the data can be aggregated at a sub-national level (e.g. the KPI could be sales per time period for each state within a country). This approach can yield more accurate results compared to the standard approach because it uses more data points to fit the model. We recommend using a sub-national level model for larger countries such as the US if possible.
-
-### Media Saturation and Lagging
-
-It is likely that the effect of a media channel on sales could have a lagged effect which tapers off slowly over time. Our powerful Bayesian MMM model architecture is designed to capture this effect and offers three different approaches. We recommend users compare all three approaches and use the approach that works the best. The approach that works the best will typically be the one which has the best out-of-sample fit (which is one of the generated outputs). The functional forms of these three approaches are briefly described below and are fully expressed in our [model documentation](https://lightweight-mmm.readthedocs.io/en/latest/models.html).
+We have three different versions of the MMM with different lagging and
+saturation and we recommend you compare all three models. The Adstock and carryover
+models have an exponent for diminishing returns. The Hill functions covers that
+functionality for the Hill-Adstock model.
 
 - [Adstock](https://en.wikipedia.org/wiki/Advertising_adstock): Applies an infinite lag that decreases its weight as time passes.
 - [Hill-Adstock](https://en.wikipedia.org/wiki/Hill_equation_(biochemistry)): Applies a sigmoid like function for diminishing returns to the output of the adstock function.
 - [Carryover](https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/46001.pdf): Applies a [causal convolution](https://paperswithcode.com/method/causal-convolution) giving more weight to the near values than distant ones.
 
+Options for lagging and saturation are as follows. Users can specify the option with `model_name` parameter in `LightweightMMM` class.
+
+<img src="https://raw.githubusercontent.com/google/lightweight_mmm/main/images/formulas_per_model.png" alt="Media effect"></img>
+
 ### Flow chart
 
 <img src="https://raw.githubusercontent.com/google/lightweight_mmm/main/images/flowchart.png" alt="flow_chart"></img>
 
+`LightweightMMM` is a class defined by `lightweight_mmm.py`.
 
 ## Getting started
 
@@ -83,7 +91,7 @@ Here we use simulated data but it is assumed you have your data cleaned at this
 point. The necessary data will be:
 
 - Media data: Containing the metric per channel and time span (eg. impressions
-  per time period). Media values must not contain negative values.
+  per week). Media values must not contain negative values.
 - Extra features: Any other features that one might want to add to the analysis.
   These features need to be known ahead of time for optimization or you would need
   another model to estimate them.
@@ -125,7 +133,7 @@ media_scaler = preprocessing.CustomScaler(divide_operation=jnp.mean)
 extra_features_scaler = preprocessing.CustomScaler(divide_operation=jnp.mean)
 target_scaler = preprocessing.CustomScaler(
     divide_operation=jnp.mean)
-# scale cost up by N since fit() will divide it by number of time periods
+# scale cost up by N since fit() will divide it by number of weeks
 cost_scaler = preprocessing.CustomScaler(divide_operation=jnp.mean)
 
 media_data_train = media_scaler.fit_transform(media_data_train)
