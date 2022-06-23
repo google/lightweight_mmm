@@ -25,8 +25,8 @@ mmm.fit(media=media_data,
         number_samples=1000,
         number_chains=2)
 
-# For obtaining media effect and ROI
-predictions, media_effect_hat, roi_hat = mmm.get_posterior_metrics()
+# For obtaining media contribution percentage and ROI
+predictions, media_contribution_hat_pct, roi_hat = mmm.get_posterior_metrics()
 
 # For running predictions on unseen data
 mmm.predict(media=media_data_test, extra_features=extra_features_test)
@@ -70,8 +70,8 @@ class LightweightMMM:
    - adstock
    - carryover
 
-  It also offers the necessary utilities for calculating media effect and media
-  ROI based on models' results.
+  It also offers the necessary utilities for calculating media contribution and
+  media ROI based on models' results.
 
   Attributes:
     trace: Sampling trace of the bayesian model once fitted.
@@ -364,11 +364,11 @@ class LightweightMMM:
       cost_scaler: Optional[preprocessing.CustomScaler] = None,
       target_scaler: Optional[preprocessing.CustomScaler] = None
   ) -> Tuple[jnp.ndarray, jnp.ndarray]:
-    """It estimates the media effect and ROI of each channel.
+    """It estimates the media contribution percentage and ROI of each channel.
 
     If data was scaled prior to training then the target and costs scalers need
-    to be passed to this function to correctly calculate effect and ROI in the
-    unscaled space.
+    to be passed to this function to correctly calculate media contribution
+    percentage and ROI in the unscaled space.
 
     Args:
       unscaled_costs: Optionally you can pass new costs to get these set of
@@ -379,9 +379,10 @@ class LightweightMMM:
       target_scaler: Scaler that was used to scale the target before training.
 
     Returns:
-      media_effect_hat: The average media effect for each channel.
-      roi_hat: The return on investment of each channel calculated as its effect
-        divided by the cost.
+      media_contribution_hat_pct: The average media contribution percentage for
+      each channel.
+      roi_hat: The return on investment of each channel calculated as its
+      contribution divided by the cost.
 
     Raises:
       NotFittedModelError: When the this method is called without the model
@@ -392,10 +393,11 @@ class LightweightMMM:
           "LightweightMMM has not been fitted and cannot run estimations. "
           "Please first fit the model.")
     if unscaled_costs is None and not cost_scaler:
-      logging.warning("Unscaled cost data or cost scaler were not given and  "
-                      "therefore unscaling wont be applied to calculcate effect"
-                      " and ROI. If data was not scaled prior to training "
-                      "please ignore this warning.")
+      logging.warning(
+          "Unscaled cost data or cost scaler were not given and  "
+          "therefore unscaling wont be applied to calculcate contribution"
+          " and ROI. If data was not scaled prior to training "
+          "please ignore this warning.")
     if not target_scaler:
       logging.warning("Target scaler was not given and unscaling of the target "
                       "will not occur. If your target was not scaled prior to "
@@ -406,24 +408,66 @@ class LightweightMMM:
       else:
         unscaled_costs = self._total_costs
 
+    if self.media.ndim == 3:
+      # cost shape (channel, geo) -> add a new axis to (channel, geo, sample)
+      unscaled_costs = unscaled_costs = unscaled_costs[:, :, jnp.newaxis]
+      # reshape cost to (sample, channel, geo)
+      unscaled_costs = jnp.einsum("cgs->scg", unscaled_costs)
+
+    # get the scaled posterior prediction
+    posterior_pred = self.trace["mu"]
     if target_scaler:
-      unscaled_target = target_scaler.inverse_transform(self._target)
+      unscaled_posterior_pred = target_scaler.inverse_transform(posterior_pred)
     else:
-      unscaled_target = self._target
+      unscaled_posterior_pred = posterior_pred
 
     if self.media.ndim == 2:
       # s for samples, t for time, c for media channels
       einsum_str = "stc, sc -> sc"
-      scaled_target_sum = self._target.sum()
-      unscaled_target_sum = unscaled_target.sum()
     elif self.media.ndim == 3:
       # s for samples, t for time, c for media channels, g for geo
       einsum_str = "stcg, scg -> scg"
-      scaled_target_sum = self._target.sum(axis=0)
-      unscaled_target_sum = unscaled_target.sum(axis=0)
 
-    effect = jnp.einsum(einsum_str, self.trace["media_transformed"],
-                        jnp.squeeze(self.trace["beta_media"]))
-    percent_change = effect / scaled_target_sum
-    roi_hat = unscaled_target_sum * percent_change / unscaled_costs
-    return percent_change, roi_hat
+    media_contribution = jnp.einsum(einsum_str, self.trace["media_transformed"],
+                                    jnp.squeeze(self.trace["beta_media"]))
+
+    # aggregate posterior_pred across time:
+    sum_scaled_prediction = jnp.sum(posterior_pred, axis=1)
+    # aggregate unscaled_posterior_pred across time:
+    sum_unscaled_prediction = jnp.sum(unscaled_posterior_pred, axis=1)
+
+    if self.media.ndim == 2:
+    # add a new axis to represent channel:(sample,) -> (sample,channel)
+      sum_scaled_prediction = sum_scaled_prediction[:, jnp.newaxis]
+      sum_unscaled_prediction = sum_unscaled_prediction[:, jnp.newaxis]
+
+    elif self.media.ndim == 3:
+      # add a new axis to represent channel:(sample,geo) -> (sample,geo,channel)
+      # note: the total prediction value stays the same for all channels
+      sum_scaled_prediction = sum_scaled_prediction[:, jnp.newaxis, :]
+      # add a new axis to represent channel:(sample,geo) -> (sample,geo,channel)
+      # note: the total prediction value stays the same for all channels
+      sum_unscaled_prediction = sum_unscaled_prediction[:, :, jnp.newaxis]
+      # reshape the array (sample,geo,channel) -> (sample,channel,geo)
+      sum_unscaled_prediction = jnp.einsum("sgc->scg", sum_unscaled_prediction)
+
+    # media contribution pct = media contribution / prediction
+    # for geo level model:
+    # media_contribution shape (sample, channel, geo)
+    # sum_scaled_prediction shape (sample, channel, geo)
+    # -> media_contribution_hat shape (sample, channel, geo)
+    media_contribution_hat = media_contribution / sum_scaled_prediction
+
+    # media roi = unscaled prediction * media contribution pct / unscaled costs
+    # for geo leve model:
+    # sum_unscaled_prediction shape (sample, channel, geo)
+    # media_contribution_hat shape (sample, channel, geo)
+    # unscaled_costs shape (sample, channel, geo)
+    # -> roi_hat shape (sample, channel, geo)
+    roi_hat = sum_unscaled_prediction * media_contribution_hat / unscaled_costs
+
+    return media_contribution_hat, roi_hat
+
+
+
+

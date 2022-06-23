@@ -138,7 +138,7 @@ class LightweightMmmTest(parameterized.TestCase):
     }
     effect, roi = mmm_object.get_posterior_metrics()
     np.testing.assert_array_almost_equal(
-        effect.mean(axis=0), jnp.array([1.2, 2.4, 3.6]), decimal=3)
+        effect.mean(axis=0), jnp.array([6., 12., 18.]), decimal=3)
     np.testing.assert_array_almost_equal(
         roi.mean(axis=0), jnp.array([28., 112., 56.]), decimal=3)
 

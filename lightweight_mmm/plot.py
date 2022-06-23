@@ -537,7 +537,7 @@ def plot_media_channel_posteriors(
     channel_names: Optional[Sequence[Any]] = None,
     quantiles: Sequence[float] = (0.05, 0.5, 0.95),
     fig_size: Optional[Tuple[int, int]] = None) -> matplotlib.figure.Figure:
-  """Plots the posterior distributions of estimated media channel effects.
+  """Plots the posterior distributions of estimated media channel effect.
 
   Model needs to be fit before calling this function to plot.
 
@@ -601,8 +601,9 @@ def plot_bars_media_metrics(
 
   Args:
     metric: Estimated media metric as returned by
-      lightweight_mmm.get_posterior_metrics(). Can be either effects or ROI.
-    metric_name: Name of the media metric, e.g. effect or ROI.
+      lightweight_mmm.get_posterior_metrics(). Can be either contribution
+      percentage or ROI.
+    metric_name: Name of the media metric, e.g. contribution percentage or ROI.
     channel_names: Names of media channels to be added to plot.
     interval_mid_range: Mid range interval to take for plotting. Eg. .9 will use
       .05 and .95 as the lower and upper quantiles. Must be a float number.
