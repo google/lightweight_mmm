@@ -43,6 +43,8 @@ Plot
     plot_media_channel_posteriors
     plot_bars_media_metrics
     plot_pre_post_budget_allocation_comparison
+    plot_media_baseline_contribution_area_plot
+    create_media_baseline_contribution_df
 
 .. autofunction:: plot_response_curves
 .. autofunction:: plot_cross_correlate
@@ -52,6 +54,9 @@ Plot
 .. autofunction:: plot_media_channel_posteriors
 .. autofunction:: plot_bars_media_metrics
 .. autofunction:: plot_pre_post_budget_allocation_comparison
+.. autofunction:: plot_media_baseline_contribution_area_plot
+.. autofunction:: create_media_baseline_contribution_df
+
 
 Models
 =======

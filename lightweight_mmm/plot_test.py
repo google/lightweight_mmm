@@ -59,6 +59,9 @@ class PlotTest(parameterized.TestCase):
         mock.patch.object(plot.plt.Axes, "plot", autospec=True))
     self.mock_plt_barplot = self.enter_context(
         mock.patch.object(plot.plt.Axes, "bar", autospec=True))
+    self.mock_pd_area_plot = self.enter_context(
+        mock.patch.object(plot.pd.DataFrame.plot, "area", autospec=True))
+
   @parameterized.named_parameters([
       dict(
           testcase_name="national",
@@ -309,6 +312,77 @@ class PlotTest(parameterized.TestCase):
           kpi_without_optim=kpi_without_optim,
           optimal_buget_allocation=optimal_buget_allocation,
           previous_budget_allocation=previous_budget_allocation)
+
+  @parameterized.named_parameters([
+      dict(testcase_name="national", media_mix_model="national_mmm"),
+      dict(testcase_name="geo", media_mix_model="geo_mmm")
+  ])
+  def test_create_media_baseline_contribution_df_contributions_add_up_avg_prediction(
+      self, media_mix_model):
+    mmm = getattr(self, media_mix_model)
+    target_scaler = preprocessing.CustomScaler(divide_operation=jnp.mean)
+    target_scaler.fit(jnp.ones(1))
+    media_channels_baseline_contribution_df = plot.create_media_baseline_contribution_df(
+        media_mix_model=mmm, target_scaler=target_scaler)
+    contribution_pct_cols = [
+        col for col in media_channels_baseline_contribution_df.columns
+        if "percentage" in col
+    ]
+    contribution_cols = [
+        col for col in media_channels_baseline_contribution_df.columns
+        if "contribution" in col
+    ]
+    # test whether contribution percentage sums up to 1 for each period
+    np.testing.assert_array_almost_equal(
+        media_channels_baseline_contribution_df[contribution_pct_cols].sum(
+            axis=1),
+        jnp.repeat(1, media_channels_baseline_contribution_df.shape[0]))
+    # test whether contribution volume sums up to avg predition for each period
+    np.testing.assert_array_almost_equal(
+        np.round(
+            media_channels_baseline_contribution_df[contribution_cols].sum(
+                axis=1), 0),
+        np.round(media_channels_baseline_contribution_df["avg_prediction"], 0))
+
+  def test_create_media_baseline_contribution_df_returns_accurate_contribution_pct(
+      self):
+    mmm_object = lightweight_mmm.LightweightMMM()
+    mmm_object.media = jnp.ones((1, 3))
+    mmm_object._total_costs = jnp.array([2., 1., 3.]) * 15
+    mmm_object._target = jnp.ones((1, 1)) * 5
+    mmm_object.media_names = ["channel_0", "channel_1", "channel_2"]
+    mmm_object.trace = {
+        "media_transformed": jnp.ones((500, 1, 3)) * jnp.arange(1, 4),
+        "mu": jnp.ones((500, 1)) * 10,
+        "beta_media": jnp.ones((500, 3)) * 0.5
+    }
+    expected_contribution_pct = jnp.array([0.05, 0.1, 0.15])
+
+    contribution_df = plot.create_media_baseline_contribution_df(
+        media_mix_model=mmm_object)
+    contribution_percentage_cols = [
+        "{}_percentage".format(col) for col in mmm_object.media_names
+    ]
+    np.testing.assert_array_almost_equal(
+        expected_contribution_pct,
+        contribution_df[contribution_percentage_cols].values.flatten().tolist())
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="national",
+          media_mix_model="national_mmm",
+          expected_calls=1),
+      dict(testcase_name="geo", media_mix_model="geo_mmm", expected_calls=1)
+  ])
+  def test_plot_media_baseline_contribution_area_plot(self, media_mix_model,
+                                                      expected_calls):
+    mmm = getattr(self, media_mix_model)
+    target_scaler = preprocessing.CustomScaler(divide_operation=jnp.mean)
+    target_scaler.fit(jnp.ones(1))
+    _ = plot.plot_media_baseline_contribution_area_plot(
+        media_mix_model=mmm, target_scaler=target_scaler)
+    self.assertEqual(self.mock_pd_area_plot.call_count, expected_calls)
+
 
 if __name__ == "__main__":
   absltest.main()

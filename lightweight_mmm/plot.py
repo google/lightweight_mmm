@@ -23,6 +23,7 @@ import jax.numpy as jnp
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import seaborn as sns
 from sklearn import metrics
 
@@ -127,6 +128,129 @@ def _calculate_number_rows_plot(n_media_channels: int, n_columns: int):
   if n_media_channels % n_columns == 0:
     return n_media_channels // n_columns + 1
   return n_media_channels // n_columns + 2
+
+
+def create_media_baseline_contribution_df(
+    media_mix_model: lightweight_mmm.LightweightMMM,
+    target_scaler: Optional[preprocessing.CustomScaler] = None,
+    channel_names: Optional[Sequence[str]] = None) -> pd.DataFrame:
+  """Creates a dataframe for weekly media channels & basline contribution.
+
+  The output dataframe will be used to create a stacked area plot to visualize
+  the contribution of each media channels & baseline.
+
+  Args:
+    media_mix_model: Media mix model.
+    target_scaler: Scaler used for scaling the target.
+    channel_names: Names of media channels.
+
+  Returns:
+    contribution_df: DataFrame of weekly channels & baseline contribution
+    percentage & volume.
+
+  Raises:
+    NotFittedModelError: If the model is not fitted before visualization.
+  """
+  if not hasattr(media_mix_model, "trace"):
+    raise lightweight_mmm.NotFittedModelError(
+        "Model needs to be fit first before attempting to plot its fit.")
+
+  if media_mix_model.trace["media_transformed"].ndim > 3:
+    # s for samples, t for time, c for media channels, g for geo
+    einsum_str = "stcg, scg->stcg"
+  elif media_mix_model.trace["media_transformed"].ndim == 3:
+    # s for samples, t for time, c for media channels
+    einsum_str = "stc, sc->stc"
+
+  scaled_media_contribution = jnp.einsum(
+      einsum_str, media_mix_model.trace["media_transformed"],
+      media_mix_model.trace["beta_media"])
+
+  if media_mix_model.trace["media_transformed"].ndim > 3:
+    # Aggregate media channel contribution across geos.
+    scaled_media_contribution = scaled_media_contribution.sum(axis=-1)
+
+  # Aggregate media channel contribution across samples.
+  sum_scaled_media_contribution_across_samples = scaled_media_contribution.sum(
+      axis=0)
+  # Aggregate media channel contribution across channels.
+  sum_scaled_media_contribution_across_channels = scaled_media_contribution.sum(
+      axis=2)
+
+  # Calculate the baseline contribution.
+  # Scaled prediction - sum of scaled contribution across channels.
+  scaled_prediction = media_mix_model.trace["mu"]
+  if media_mix_model.trace["media_transformed"].ndim > 3:
+    # Sum up the scaled prediction across all the geos.
+    scaled_prediction = scaled_prediction.sum(axis=-1)
+  baseline_contribution = scaled_prediction - sum_scaled_media_contribution_across_channels
+
+  # Sum up the scaled media, baseline contribution and predictio across samples.
+  sum_scaled_media_contribution_across_channels_samples = sum_scaled_media_contribution_across_channels.sum(
+      axis=0)
+  sum_scaled_baseline_contribution_across_samples = baseline_contribution.sum(
+      axis=0)
+
+  # Adjust baseline contribution and prediction when there's any negative value.
+  adjusted_sum_scaled_baseline_contribution_across_samples = np.where(
+      sum_scaled_baseline_contribution_across_samples < 0, 0,
+      sum_scaled_baseline_contribution_across_samples)
+  adjusted_sum_scaled_prediction_across_samples = adjusted_sum_scaled_baseline_contribution_across_samples + sum_scaled_media_contribution_across_channels_samples
+
+  # Calculate the media and baseline pct.
+  # Media/baseline contribution across samples/total prediction across samples.
+  media_contribution_pct_by_channel = (
+      sum_scaled_media_contribution_across_samples /
+      adjusted_sum_scaled_prediction_across_samples.reshape(-1, 1))
+  baseline_contribution_pct = adjusted_sum_scaled_baseline_contribution_across_samples / adjusted_sum_scaled_prediction_across_samples
+
+  # If the channel_names is none, then create naming covention for the channels.
+  if channel_names is None:
+    channel_names = media_mix_model.media_names
+
+  # Create media/baseline contribution pct as dataframes.
+  media_contribution_pct_by_channel_df = pd.DataFrame(
+      media_contribution_pct_by_channel, columns=channel_names)
+  baseline_contribution_pct_df = pd.DataFrame(
+      baseline_contribution_pct, columns=["baseline"])
+  contribution_pct_df = pd.merge(
+      media_contribution_pct_by_channel_df,
+      baseline_contribution_pct_df,
+      left_index=True,
+      right_index=True)
+
+  # If there's target scaler then inverse transform the posterior prediction.
+  posterior_pred = media_mix_model.trace["mu"]
+  if target_scaler:
+    posterior_pred = target_scaler.inverse_transform(posterior_pred)
+
+  # Take the sum of posterior predictions across geos.
+  if media_mix_model.trace["media_transformed"].ndim > 3:
+    posterior_pred = posterior_pred.sum(axis=-1)
+
+  # Take the average of the inverse transformed prediction across samples.
+  posterior_pred_df = pd.DataFrame(
+      posterior_pred.mean(axis=0), columns=["avg_prediction"])
+  contribution_pct_df.columns = [
+      "{}_percentage".format(col) for col in contribution_pct_df.columns
+  ]
+  contribution_df = pd.merge(
+      contribution_pct_df, posterior_pred_df, left_index=True, right_index=True)
+
+  # Create contribution by multiplying average prediction by media/baseline pct.
+  for channel in channel_names:
+    channel_contribution_col_name = "{} contribution".format(channel)
+    channel_pct_col = "{}_percentage".format(channel)
+    contribution_df.loc[:, channel_contribution_col_name] = contribution_df[
+        channel_pct_col] * contribution_df["avg_prediction"]
+    contribution_df.loc[:, channel_contribution_col_name] = contribution_df[
+        channel_contribution_col_name].astype("float")
+  contribution_df.loc[:, "baseline contribution"] = contribution_df[
+      "baseline_percentage"] * contribution_df["avg_prediction"]
+
+  period = np.arange(1, contribution_df.shape[0] + 1)
+  contribution_df.loc[:, "period"] = period
+  return contribution_df
 
 
 def plot_response_curves(
@@ -689,7 +813,7 @@ def plot_pre_post_budget_allocation_comparison(
       pre_optimizaiton_predicted_target, post_optimization_predictiond_target
   ]
 
-  # create bar chart
+  # Create bar chart.
   fig, axes = plt.subplots(2, 1, figsize=figure_size)
 
   plots1 = axes[0].bar(
@@ -706,7 +830,7 @@ def plot_pre_post_budget_allocation_comparison(
   axes[0].set_title(
       "Before and After Optimization Budget Allocation Comparison",
       fontsize="x-large")
-  # Iterrating over the bars one-by-one
+  # Iterrating over the bars one-by-one.
   for bar_i in range(len(plots1.patches)):
     bar = plots1.patches[bar_i]
     axes[0].annotate(
@@ -718,7 +842,7 @@ def plot_pre_post_budget_allocation_comparison(
         xytext=(0, 8),
         textcoords="offset points")
 
-  # Iterrating over the bars one-by-one
+  # Iterrating over the bars one-by-one.
   for bar_i in range(len(plots2.patches)):
     bar = plots2.patches[bar_i]
     axes[0].annotate(
@@ -751,7 +875,7 @@ def plot_pre_post_budget_allocation_comparison(
   ],
                           fontsize="x-large")
 
-  # Iterrating over the bars one-by-one
+  # Iterrating over the bars one-by-one.
   for bar_i in range(len(plots3.patches)):
     bar = plots3.patches[bar_i]
     axes[1].annotate(
@@ -764,5 +888,55 @@ def plot_pre_post_budget_allocation_comparison(
         textcoords="offset points")
 
   plt.tight_layout()
+  plt.close()
+  return fig
+
+
+def plot_media_baseline_contribution_area_plot(
+    media_mix_model: lightweight_mmm.LightweightMMM,
+    target_scaler: Optional[preprocessing.CustomScaler] = None,
+    channel_names: Optional[Sequence[Any]] = None,
+    fig_size: Optional[Tuple[int, int]] = (30, 10)
+) -> matplotlib.figure.Figure:
+  """Plots an area chart to visualize weekly media & baseline contribution.
+
+  Args:
+    media_mix_model: Media mix model.
+    target_scaler: Scaler used for scaling the target.
+    channel_names: Names of media channels.
+    fig_size: Size of the figure to plot as used by matplotlib.
+
+  Returns:
+    Stacked area chart of weekly baseline & media contribution.
+  """
+  # Create media channels & baseline contribution dataframe.
+  contribution_df = create_media_baseline_contribution_df(
+      media_mix_model=media_mix_model,
+      target_scaler=target_scaler,
+      channel_names=channel_names)
+
+  # Create contribution dataframe for the plot.
+  contribution_columns = [
+      col for col in contribution_df.columns if "contribution" in col
+  ]
+  contribution_df_for_plot = contribution_df.loc[:,contribution_columns]
+  contribution_df_for_plot = contribution_df_for_plot[
+      contribution_df_for_plot.columns[::-1]]
+  period = np.arange(1, contribution_df_for_plot.shape[0] + 1)
+  contribution_df_for_plot.loc[:, "period"] = period
+
+  # Plot the stacked area chart.
+  fig, ax = plt.subplots()
+  contribution_df_for_plot.plot.area(
+      x="period", stacked=True, figsize=fig_size, ax=ax)
+  ax.set_title("Attribution Over Time", fontsize="x-large")
+  ax.tick_params(axis="y")
+  ax.set_ylabel("Baseline & Media Chanels Attribution")
+  ax.set_xlabel("Period")
+  ax.set_xlim(1, contribution_df_for_plot["period"].max())
+  ax.set_xticks(contribution_df_for_plot["period"])
+  ax.set_xticklabels(contribution_df_for_plot["period"])
+  for tick in ax.get_xticklabels():
+    tick.set_rotation(45)
   plt.close()
   return fig
