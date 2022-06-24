@@ -21,12 +21,12 @@ JAX. Otherwise our installation assumes a CPU setup.
 
 The recommended way of installing lightweight_mmm is through PyPi:
 
-pip install --upgrade pip
-pip install lightweight_mmm
+``pip install --upgrade pip``
+``pip install lightweight_mmm``
 
 If you want to use the most recent and slightly less stable version you can install it from github:
 
-pip install --upgrade git+https://github.com/google/lightweight_mmm.git
+``pip install --upgrade git+https://github.com/google/lightweight_mmm.git``
 
 
 .. toctree::
