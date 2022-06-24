@@ -30,6 +30,13 @@ If you want to use the most recent and slightly less stable version you can inst
 
 
 .. toctree::
+   :caption: Model Documentation
+   :maxdepth: 1
+
+   models
+
+
+.. toctree::
    :caption: API Documentation
    :maxdepth: 2
 
