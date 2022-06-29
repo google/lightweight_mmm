@@ -56,7 +56,7 @@ _README = _get_readme()
 _INSTALL_REQUIREMENTS = _parse_requirements(os.path.join(
     _CURRENT_DIR, "requirements", "requirements.txt"))
 _TEST_REQUIREMENTS = _parse_requirements(os.path.join(
-    _CURRENT_DIR, "requirements", 'requirements_tests.txt'))
+    _CURRENT_DIR, "requirements", "requirements_tests.txt"))
 
 setup(
     name="lightweight_mmm",
