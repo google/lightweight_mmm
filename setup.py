@@ -55,6 +55,8 @@ _VERSION = _get_version()
 _README = _get_readme()
 _INSTALL_REQUIREMENTS = _parse_requirements(os.path.join(
     _CURRENT_DIR, "requirements", "requirements.txt"))
+_TEST_REQUIREMENTS = _parse_requirements(os.path.join(
+    _CURRENT_DIR, "requirements", 'requirements_tests.txt'))
 
 setup(
     name="lightweight_mmm",
@@ -67,6 +69,7 @@ setup(
     license="Apache 2.0",
     packages=find_packages(),
     install_requires=_INSTALL_REQUIREMENTS,
+    tests_require=_TEST_REQUIREMENTS,
     url="https://github.com/google/lightweight_mmm",
     classifiers=[
         "Development Status :: 3 - Alpha",
