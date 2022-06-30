@@ -162,7 +162,8 @@ class PlotTest(parameterized.TestCase):
 
     calls_list = self.mock_sns_lineplot.call_args_list
     for _, call_kwargs in calls_list[:3]:
-      self.assertEqual(call_kwargs["y"].min().item(), 0)
+      self.assertLessEqual(call_kwargs["y"].min().item(), 0.1)
+      self.assertGreaterEqual(call_kwargs["y"].min().item(), -0.1)
 
   @parameterized.named_parameters([
       dict(
