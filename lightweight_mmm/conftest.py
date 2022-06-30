@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""LightweightMMM library.
+"""Parse absl flags for when it is run by github actions by pytest."""
 
-Detailed documentation and examples can be found in the
-[Github repository](https://github.com/google/lightweight_mmm).
-"""
-__version__ = "0.1.4"
+from absl import flags
+
+
+def pytest_configure(config):
+  flags.FLAGS.mark_as_parsed()
