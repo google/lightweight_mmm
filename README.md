@@ -69,7 +69,7 @@ It is likely that the effect of a media channel on sales could have a lagged eff
 
 The recommended way of installing lightweight_mmm is through PyPi:
 
-```
+```bash
 pip install --upgrade pip
 pip install lightweight_mmm
 ```
@@ -91,7 +91,7 @@ point. The necessary data will be:
   optimized during the optimization phase.
 - Costs: The average cost per media unit per channel.
 
-```
+```python
 # Let's assume we have the following datasets with the following shapes (we use
 the `simulate_dummy_data` function in utils for this example):
 media_data, extra_features, target, costs = utils.simulate_dummy_data(
@@ -112,7 +112,7 @@ in case the wider used scalers don't fit your use case. Scale your data
 accordingly before fitting the model.
 Below is an example of usage of this `CustomScaler`:
 
-```
+```python
 # Simple split of the data based on time.
 split_point = data_size - data_size // 10
 media_data_train = media_data[:split_point, :]
@@ -150,7 +150,7 @@ CPUs available.
 
 See an example below:
 
-```
+```python
 # Fit model.
 mmm = lightweight_mmm.LightweightMMM()
 mmm.fit(media=media_data,
@@ -172,7 +172,7 @@ annual.
 #### Convergence Check
 Users can check convergence metrics of the parameters as follows:
 
-```
+```python
 mmm.print_summary()
 ```
 
@@ -181,7 +181,7 @@ The rule of thumb is that `r_hat` values for all parameters are less than 1.1.
 #### Fitting check
 Users can check fitting between true KPI and predicted KPI by:
 
-```
+```python
 plot.plot_model_fit(media_mix_model=mmm, target_scaler=target_scaler)
 ```
 
@@ -191,7 +191,7 @@ would be unscaled. Bayesian R-squared and MAPE are shown in the chart.
 #### Predictive check
 Users can get the prediction for the test data by:
 
-```
+```python
 prediction = mmm.predict(
     media=media_data_test,
     extra_features=extra_data_test,
@@ -209,14 +209,14 @@ the metrics such as mean and median.
 #### Parameter estimation check
 Users can get detail of the parameter estimation by:
 
-```
+```python
 mmm.print_summary()
 ```
 
 The above returns the mean, standard deviation, median and the credible interval
 for each parameter. The distribution charts are provided by:
 
-```
+```python
 plot.plot_media_channel_posteriors(media_mix_model=mmm, channel_names=media_names)
 ```
 
@@ -225,7 +225,7 @@ plot.plot_media_channel_posteriors(media_mix_model=mmm, channel_names=media_name
 #### Media insights
 Response curves are provided as follows:
 
-```
+```python
 plot.plot_response_curves(media_mix_model=mmm, media_scaler=media_scaler, target_scaler=target_scaler)
 ```
 
@@ -233,17 +233,17 @@ If `media_scaler` and `target_scaler` used for `preprocessing.CustomScaler()` ar
 
 To extract the media effectiveness and ROI estimation, users can do the following:
 
-```
+```python
 media_effect_hat, roi_hat = mmm.get_posterior_metrics()
 ```
 
 `media_effect_hat` is the media effectiveness estimation and `roi_hat` is the ROI estimation. Then users can visualize the distribution of the estimation as follows:
 
-```
+```python
 plot.plot_bars_media_metrics(metric=media_effect_hat, channel_names=media_names)
 ```
 
-```
+```python
 plot.plot_bars_media_metrics(metric=roi_hat, channel_names=media_names)
 ```
 
@@ -269,7 +269,7 @@ time. For running the optimization one needs the following main parameters:
 
 See below and example of optimization:
 
-```
+```python
 # Run media optimization.
 budget = 40 # your budget here
 prices = np.array([0.1, 0.11, 0.12])
@@ -285,14 +285,14 @@ solution = optimize_media.find_optimal_budgets(
 ### Save and load the model
 Users can save and load the model as follows:
 
-```
+```python
 utils.save_model(mmm, file_path='file_path')
 ```
 
 Users can specify `file_path` to save the model.
 To load a saved MMM model:
 
-```
+```python
 utils.load_model(file_path: 'file_path')
 ```
 
