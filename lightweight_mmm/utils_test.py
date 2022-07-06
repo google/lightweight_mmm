@@ -49,7 +49,7 @@ class UtilsTest(parameterized.TestCase):
     mmm_object.fit(
         media=media,
         extra_features=extra_features,
-        total_costs=costs,
+        media_prior=costs,
         target=target,
         number_warmup=10,
         number_samples=100,
@@ -70,7 +70,7 @@ class UtilsTest(parameterized.TestCase):
     mmm_object.fit(
         media=media,
         extra_features=extra_features,
-        total_costs=costs,
+        media_prior=costs,
         target=target,
         number_warmup=10,
         number_samples=100,

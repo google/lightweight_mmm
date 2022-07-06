@@ -19,6 +19,8 @@ from absl.testing import parameterized
 import jax
 import jax.numpy as jnp
 import numpyro
+from numpyro import distributions as dist
+from numpyro import handlers
 
 from lightweight_mmm import models
 
@@ -35,8 +37,9 @@ class ModelsTest(parameterized.TestCase):
   def test_transform_adstock_produces_correct_output_shape(self, shape):
 
     def mock_model_function(media_data):
-      numpyro.deterministic("transformed_media",
-                            models.transform_adstock(media_data))
+      numpyro.deterministic(
+          "transformed_media",
+          models.transform_adstock(media_data, custom_priors={}))
 
     media = jnp.ones(shape)
     kernel = numpyro.infer.NUTS(model=mock_model_function)
@@ -61,7 +64,7 @@ class ModelsTest(parameterized.TestCase):
     def mock_model_function(media_data):
       numpyro.deterministic(
           "transformed_media",
-          models.transform_hill_adstock(media_data))
+          models.transform_hill_adstock(media_data, custom_priors={}))
 
     media = jnp.ones(shape)
     kernel = numpyro.infer.NUTS(model=mock_model_function)
@@ -86,7 +89,7 @@ class ModelsTest(parameterized.TestCase):
     def mock_model_function(media_data):
       numpyro.deterministic(
           "transformed_media",
-          models.transform_carryover(media_data))
+          models.transform_carryover(media_data, custom_priors={}))
 
     media = jnp.ones(shape)
     kernel = numpyro.infer.NUTS(model=mock_model_function)
@@ -142,8 +145,9 @@ class ModelsTest(parameterized.TestCase):
         media_data=media,
         extra_features=extra_features,
         target_data=target,
-        cost_prior=costs_prior,
+        media_prior=costs_prior,
         degrees_seasonality=degrees,
+        custom_priors={},
         frequency=52,
         transform_function=models.transform_carryover)
     trace = mcmc.get_samples()
@@ -164,6 +168,109 @@ class ModelsTest(parameterized.TestCase):
     self.assertEqual(trace["gamma_seasonality"].mean(axis=0).shape,
                      (degrees, 2))
     self.assertEqual(trace["mu"].mean(axis=0).shape, target_shape)
+
+  @parameterized.named_parameters(
+      dict(
+          testcase_name=f"model_{models._INTERCEPT}",
+          prior_name=models._INTERCEPT,
+          transform_function=models.transform_carryover),
+      dict(
+          testcase_name=f"model_{models._BETA_TREND}",
+          prior_name=models._BETA_TREND,
+          transform_function=models.transform_carryover),
+      dict(
+          testcase_name=f"model_{models._EXPO_TREND}",
+          prior_name=models._EXPO_TREND,
+          transform_function=models.transform_carryover),
+      dict(
+          testcase_name=f"model_{models._SIGMA}",
+          prior_name=models._SIGMA,
+          transform_function=models.transform_carryover),
+      dict(
+          testcase_name=f"model_{models._GAMMA_SEASONALITY}",
+          prior_name=models._GAMMA_SEASONALITY,
+          transform_function=models.transform_carryover),
+      dict(
+          testcase_name=f"model_{models._WEEKDAY}",
+          prior_name=models._WEEKDAY,
+          transform_function=models.transform_carryover),
+      dict(
+          testcase_name=f"model_{models._BETA_EXTRA_FEATURES}",
+          prior_name=models._BETA_EXTRA_FEATURES,
+          transform_function=models.transform_carryover),
+      dict(
+          testcase_name=f"model_{models._BETA_SEASONALITY}",
+          prior_name=models._BETA_SEASONALITY,
+          transform_function=models.transform_carryover),
+      dict(
+          testcase_name=f"carryover_{models._AD_EFFECT_RETENTION_RATE}",
+          prior_name=models._AD_EFFECT_RETENTION_RATE,
+          transform_function=models.transform_carryover),
+      dict(
+          testcase_name=f"carryover_{models._PEAK_EFFECT_DELAY}",
+          prior_name=models._PEAK_EFFECT_DELAY,
+          transform_function=models.transform_carryover),
+      dict(
+          testcase_name=f"carryover_{models._EXPONENT}",
+          prior_name=models._EXPONENT,
+          transform_function=models.transform_carryover),
+      dict(
+          testcase_name=f"adstock_{models._EXPONENT}",
+          prior_name=models._EXPONENT,
+          transform_function=models.transform_adstock),
+      dict(
+          testcase_name=f"adstock_{models._LAG_WEIGHT}",
+          prior_name=models._LAG_WEIGHT,
+          transform_function=models.transform_adstock),
+      dict(
+          testcase_name=f"hilladstock_{models._LAG_WEIGHT}",
+          prior_name=models._LAG_WEIGHT,
+          transform_function=models.transform_hill_adstock),
+      dict(
+          testcase_name=f"hilladstock_{models._HALF_MAX_EFFECTIVE_CONCENTRATION}",
+          prior_name=models._HALF_MAX_EFFECTIVE_CONCENTRATION,
+          transform_function=models.transform_hill_adstock),
+      dict(
+          testcase_name=f"hilladstock_{models._SLOPE}",
+          prior_name=models._SLOPE,
+          transform_function=models.transform_hill_adstock),
+  )
+  def test_media_mix_model_custom_priors_are_taken_correctly(
+      self, prior_name, transform_function):
+    expected_value1, expected_value2 = 5.2, 7.56
+    custom_priors = {
+        prior_name: dist.Kumaraswamy(
+            concentration1=expected_value1, concentration0=expected_value2)}
+    media = jnp.ones((10, 5, 5))
+    extra_features = jnp.ones((10, 3, 5))
+    costs_prior = jnp.ones((5, 1))
+    target = jnp.ones((10, 5))
+
+    trace_handler = handlers.trace(handlers.seed(
+        models.media_mix_model, rng_seed=0))
+    trace = trace_handler.get_trace(
+        media_data=media,
+        extra_features=extra_features,
+        target_data=target,
+        media_prior=costs_prior,
+        custom_priors=custom_priors,
+        degrees_seasonality=2,
+        frequency=52,
+        transform_function=transform_function,
+        weekday_seasonality=True
+    )
+    values_and_dists = {
+        name: site["fn"]
+        for name, site in trace.items() if "fn" in site
+    }
+
+    used_distribution = values_and_dists[prior_name]
+    if isinstance(used_distribution, dist.ExpandedDistribution):
+      used_distribution = used_distribution.base_dist
+    self.assertIsInstance(used_distribution, dist.Kumaraswamy)
+    self.assertEqual(used_distribution.concentration0, expected_value2)
+    self.assertEqual(used_distribution.concentration1, expected_value1)
+
 
 if __name__ == "__main__":
   absltest.main()

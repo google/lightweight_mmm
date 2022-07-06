@@ -22,34 +22,147 @@ three different models.
   - Carryover
 """
 
-from typing import Any, Callable, Mapping, Optional
+from typing import Any, Dict, Mapping, MutableMapping, Protocol, Optional, Sequence, Union
 
-import frozendict
+import immutabledict
 import jax.numpy as jnp
 import numpyro
 from numpyro import distributions as dist
 
 from lightweight_mmm import media_transforms
 
+Prior = Union[
+    dist.Distribution,
+    Dict[str, float],
+    Sequence[float],
+    float
+]
+
+
+class TransformFunction(Protocol):
+
+  def __call__(
+      self,
+      media_data: jnp.ndarray,
+      custom_priors: MutableMapping[str, Prior],
+      **kwargs: Any) -> jnp.ndarray:
+    ...
+
+
+_INTERCEPT = "intercept"
+_BETA_TREND = "beta_trend"
+_EXPO_TREND = "expo_trend"
+_SIGMA = "sigma"
+_GAMMA_SEASONALITY = "gamma_seasonality"
+_WEEKDAY = "weekday"
+_BETA_EXTRA_FEATURES = "beta_extra_features"
+_BETA_SEASONALITY = "beta_seasonality"
+
+MODEL_PRIORS_NAMES = frozenset((
+    _INTERCEPT,
+    _BETA_TREND,
+    _EXPO_TREND,
+    _SIGMA,
+    _GAMMA_SEASONALITY,
+    _WEEKDAY,
+    _BETA_EXTRA_FEATURES,
+    _BETA_SEASONALITY))
+
+_EXPONENT = "exponent"
+_LAG_WEIGHT = "lag_weight"
+_HALF_MAX_EFFECTIVE_CONCENTRATION = "half_max_effective_concentration"
+_SLOPE = "slope"
+_AD_EFFECT_RETENTION_RATE = "ad_effect_retention_rate"
+_PEAK_EFFECT_DELAY = "peak_effect_delay"
+
+TRANSFORM_PRIORS_NAMES = immutabledict.immutabledict({
+    "carryover":
+        frozenset((_AD_EFFECT_RETENTION_RATE, _PEAK_EFFECT_DELAY, _EXPONENT)),
+    "adstock":
+        frozenset((_EXPONENT, _LAG_WEIGHT)),
+    "hill_adstock":
+        frozenset((_LAG_WEIGHT, _HALF_MAX_EFFECTIVE_CONCENTRATION, _SLOPE))
+})
+
+GEO_ONLY_PRIORS = frozenset((_BETA_SEASONALITY,))
+
+
+def _get_default_priors() -> Mapping[str, Prior]:
+  # Since JAX cannot be called before absl.app.run in tests we get default
+  # priors from a function.
+  return immutabledict.immutabledict({
+      _INTERCEPT: dist.HalfNormal(scale=2.),
+      _BETA_TREND: dist.Normal(loc=0., scale=1.),
+      _EXPO_TREND: dist.Uniform(low=0.5, high=1.5),
+      _SIGMA: dist.Gamma(concentration=1., rate=1.),
+      _GAMMA_SEASONALITY: dist.Normal(loc=0., scale=1.),
+      _WEEKDAY: dist.Normal(loc=0., scale=.5),
+      _BETA_EXTRA_FEATURES: dist.Normal(loc=0., scale=1.),
+      _BETA_SEASONALITY: dist.HalfNormal(scale=.5)
+  })
+
+
+def _get_transform_default_priors() -> Mapping[str, Prior]:
+  # Since JAX cannot be called before absl.app.run in tests we get default
+  # priors from a function.
+  return immutabledict.immutabledict({
+      "carryover":
+          immutabledict.immutabledict({
+              _AD_EFFECT_RETENTION_RATE:
+                  dist.Beta(concentration1=1., concentration0=1.),
+              _PEAK_EFFECT_DELAY:
+                  dist.HalfNormal(scale=2.),
+              _EXPONENT:
+                  dist.Beta(concentration1=9., concentration0=1.)
+          }),
+      "adstock":
+          immutabledict.immutabledict({
+              _EXPONENT: dist.Beta(concentration1=9., concentration0=1.),
+              _LAG_WEIGHT: dist.Beta(concentration1=2., concentration0=1.)
+          }),
+      "hill_adstock":
+          immutabledict.immutabledict({
+              _LAG_WEIGHT:
+                  dist.Beta(concentration1=2., concentration0=1.),
+              _HALF_MAX_EFFECTIVE_CONCENTRATION:
+                  dist.Gamma(concentration=1., rate=1.),
+              _SLOPE:
+                  dist.Gamma(concentration=1., rate=1.)
+          })
+  })
+
 
 def transform_adstock(media_data: jnp.ndarray,
+                      custom_priors: MutableMapping[str, Prior],
                       normalise: bool = True) -> jnp.ndarray:
   """Transforms the input data with the adstock function and exponent.
 
   Args:
     media_data: Media data to be transformed. It is expected to have 2 dims for
       national models and 3 for geo models.
+    custom_priors: The custom priors we want the model to take instead of the
+      default ones. The possible names of parameters for adstock and exponent
+      are "lag_weight" and "exponent".
     normalise: Whether to normalise the output values.
 
   Returns:
     The transformed media data.
   """
-  with numpyro.plate("lag_weight_plate", media_data.shape[1]):
-    lag_weight = numpyro.sample("lag_weight",
-                                dist.Beta(concentration1=2., concentration0=1.))
-  with numpyro.plate("exponent_plate", media_data.shape[1]):
-    exponent = numpyro.sample("exponent",
-                              dist.Beta(concentration1=9., concentration0=1.))
+  transform_default_priors = _get_transform_default_priors()["adstock"]
+  with numpyro.plate(name=f"{_LAG_WEIGHT}_plate",
+                     size=media_data.shape[1]):
+    lag_weight = numpyro.sample(
+        name=_LAG_WEIGHT,
+        fn=custom_priors.get(_LAG_WEIGHT,
+                             transform_default_priors[_LAG_WEIGHT]))
+
+  with numpyro.plate(name=f"{_EXPONENT}_plate",
+                     size=media_data.shape[1]):
+    exponent = numpyro.sample(
+        name=_EXPONENT,
+        fn=custom_priors.get(_EXPONENT,
+                             transform_default_priors[_EXPONENT]))
+
   if media_data.ndim == 3:
     lag_weight = jnp.expand_dims(lag_weight, axis=-1)
     exponent = jnp.expand_dims(exponent, axis=-1)
@@ -61,29 +174,42 @@ def transform_adstock(media_data: jnp.ndarray,
 
 
 def transform_hill_adstock(media_data: jnp.ndarray,
+                           custom_priors: MutableMapping[str, Prior],
                            normalise: bool = True) -> jnp.ndarray:
   """Transforms the input data with the adstock and hill functions.
 
   Args:
     media_data: Media data to be transformed. It is expected to have 2 dims for
       national models and 3 for geo models.
+    custom_priors: The custom priors we want the model to take instead of the
+      default ones. The possible names of parameters for hill_adstock and
+      exponent are "lag_weight", "half_max_effective_concentration" and "slope".
     normalise: Whether to normalise the output values.
 
   Returns:
     The transformed media data.
   """
-  with numpyro.plate("lag_weight_plate", media_data.shape[1]):
-    lag_weight = numpyro.sample("lag_weight",
-                                dist.Beta(concentration1=2., concentration0=1.))
+  transform_default_priors = _get_transform_default_priors()["hill_adstock"]
+  with numpyro.plate(name=f"{_LAG_WEIGHT}_plate",
+                     size=media_data.shape[1]):
+    lag_weight = numpyro.sample(
+        name=_LAG_WEIGHT,
+        fn=custom_priors.get(_LAG_WEIGHT,
+                             transform_default_priors[_LAG_WEIGHT]))
 
-  with numpyro.plate("half_max_effective_concentration_plate",
-                     media_data.shape[1]):
+  with numpyro.plate(name=f"{_HALF_MAX_EFFECTIVE_CONCENTRATION}_plate",
+                     size=media_data.shape[1]):
     half_max_effective_concentration = numpyro.sample(
-        "half_max_effective_concentration",
-        dist.Gamma(concentration=1., rate=1.))
+        name=_HALF_MAX_EFFECTIVE_CONCENTRATION,
+        fn=custom_priors.get(
+            _HALF_MAX_EFFECTIVE_CONCENTRATION,
+            transform_default_priors[_HALF_MAX_EFFECTIVE_CONCENTRATION]))
 
-  with numpyro.plate("slope_plate", media_data.shape[1]):
-    slope = numpyro.sample("slope", dist.Gamma(concentration=1., rate=1.))
+  with numpyro.plate(name=f"{_SLOPE}_plate",
+                     size=media_data.shape[1]):
+    slope = numpyro.sample(
+        name=_SLOPE,
+        fn=custom_priors.get(_SLOPE, transform_default_priors[_SLOPE]))
 
   if media_data.ndim == 3:
     lag_weight = jnp.expand_dims(lag_weight, axis=-1)
@@ -99,29 +225,44 @@ def transform_hill_adstock(media_data: jnp.ndarray,
 
 
 def transform_carryover(media_data: jnp.ndarray,
+                        custom_priors: MutableMapping[str, Prior],
                         number_lags: int = 13) -> jnp.ndarray:
   """Transforms the input data with the carryover function and exponent.
 
   Args:
     media_data: Media data to be transformed. It is expected to have 2 dims for
       national models and 3 for geo models.
+    custom_priors: The custom priors we want the model to take instead of the
+      default ones. The possible names of parameters for carryover and exponent
+      are "ad_effect_retention_rate_plate", "peak_effect_delay_plate" and
+      "exponent".
     number_lags: Number of lags for the carryover function.
 
   Returns:
     The transformed media data.
   """
-  with numpyro.plate("ad_effect_retention_rate_plate", media_data.shape[1]):
+  transform_default_priors = _get_transform_default_priors()["carryover"]
+  with numpyro.plate(name=f"{_AD_EFFECT_RETENTION_RATE}_plate",
+                     size=media_data.shape[1]):
     ad_effect_retention_rate = numpyro.sample(
-        "ad_effect_retention_rate",
-        dist.Beta(concentration1=1., concentration0=1.))
+        name=_AD_EFFECT_RETENTION_RATE,
+        fn=custom_priors.get(
+            _AD_EFFECT_RETENTION_RATE,
+            transform_default_priors[_AD_EFFECT_RETENTION_RATE]))
 
-  with numpyro.plate("peak_effect_delay_plate", media_data.shape[1]):
-    peak_effect_delay = numpyro.sample("peak_effect_delay",
-                                       dist.HalfNormal(scale=2.))
-  with numpyro.plate("exponent_plate", media_data.shape[1]):
-    exponent = numpyro.sample("exponent",
-                              dist.Beta(concentration1=9., concentration0=1.))
+  with numpyro.plate(name=f"{_PEAK_EFFECT_DELAY}_plate",
+                     size=media_data.shape[1]):
+    peak_effect_delay = numpyro.sample(
+        name=_PEAK_EFFECT_DELAY,
+        fn=custom_priors.get(
+            _PEAK_EFFECT_DELAY, transform_default_priors[_PEAK_EFFECT_DELAY]))
 
+  with numpyro.plate(name=f"{_EXPONENT}_plate",
+                     size=media_data.shape[1]):
+    exponent = numpyro.sample(
+        name=_EXPONENT,
+        fn=custom_priors.get(_EXPONENT,
+                             transform_default_priors[_EXPONENT]))
   carryover = media_transforms.carryover(
       data=media_data,
       ad_effect_retention_rate=ad_effect_retention_rate,
@@ -136,26 +277,32 @@ def transform_carryover(media_data: jnp.ndarray,
 def media_mix_model(
     media_data: jnp.ndarray,
     target_data: jnp.ndarray,
-    cost_prior: jnp.ndarray,
+    media_prior: jnp.ndarray,
     degrees_seasonality: int,
     frequency: int,
-    transform_function: Callable[[jnp.array], jnp.array],
-    transform_kwargs: Mapping[str, Any] = frozendict.frozendict(),
+    transform_function: TransformFunction,
+    custom_priors: MutableMapping[str, Prior],
+    transform_kwargs: Optional[Mapping[str, Any]] = None,
     weekday_seasonality: bool = False,
-    extra_features: Optional[jnp.array] = None,
+    extra_features: Optional[jnp.array] = None
     ) -> None:
   """Media mix model.
 
   Args:
     media_data: Media data to be be used in the model.
     target_data: Target data for the model.
-    cost_prior: Cost prior for each of the media channels.
+    media_prior: Cost prior for each of the media channels.
     degrees_seasonality: Number of degrees of seasonality to use.
     frequency: Frequency of the time span which was used to aggregate the data.
       Eg. if weekly data then frequency is 52.
     transform_function: Function to use to transform the media data in the
       model. Currently the following are supported: 'transform_adstock',
         'transform_carryover' and 'transform_hill_adstock'.
+    custom_priors: The custom priors we want the model to take instead of the
+      default ones. The possible names of parameters for the main part of the
+      model are: "intercept", "beta_trend", "expo_trend", "beta_media", "sigma",
+      "gamma_seasonality", "weekday" and "beta_extra_features". Please refer to
+      the transform function for its respective parameters.
     transform_kwargs: Any extra keyword arguments to pass to the transform
       function. For example the adstock function can take a boolean to noramlise
       output or not.
@@ -163,30 +310,32 @@ def media_mix_model(
       parameter.
     extra_features: Extra features data to include in the model.
   """
+  default_priors = _get_default_priors()
   data_size = media_data.shape[0]
   n_channels = media_data.shape[1]
   geo_shape = (media_data.shape[2],) if media_data.ndim == 3 else ()
   n_geos = media_data.shape[2] if media_data.ndim == 3 else 1
 
-  with numpyro.plate(name="intercept_plate", size=n_geos):
+  with numpyro.plate(name=f"{_INTERCEPT}_plate", size=n_geos):
     intercept = numpyro.sample(
-        name="intercept",
-        fn=dist.Normal(loc=0., scale=2.))
+        name=_INTERCEPT,
+        fn=custom_priors.get(_INTERCEPT, default_priors[_INTERCEPT]))
 
-  with numpyro.plate(name="sigma_plate", size=n_geos):
+  with numpyro.plate(name=f"{_SIGMA}_plate", size=n_geos):
     sigma = numpyro.sample(
-        name="sigma",
-        fn=dist.Gamma(concentration=1., rate=1.))
+        name=_SIGMA,
+        fn=custom_priors.get(_SIGMA, default_priors[_SIGMA]))
 
   # TODO(): Force all geos to have the same trend sign.
-  with numpyro.plate(name="beta_trend_plate", size=n_geos):
+  with numpyro.plate(name=f"{_BETA_TREND}_plate", size=n_geos):
     beta_trend = numpyro.sample(
-        name="beta_trend",
-        fn=dist.Normal(loc=0., scale=1.))
+        name=_BETA_TREND,
+        fn=custom_priors.get(_BETA_TREND, default_priors[_BETA_TREND]))
 
   expo_trend = numpyro.sample(
-      name="expo_trend",
-      fn=dist.Beta(concentration1=1., concentration0=1.))
+      name=_EXPO_TREND,
+      fn=custom_priors.get(
+          _EXPO_TREND, default_priors[_EXPO_TREND]))
 
   with numpyro.plate(
       name="channel_media_plate",
@@ -194,7 +343,7 @@ def media_mix_model(
       dim=-2 if media_data.ndim == 3 else -1):
     beta_media = numpyro.sample(
         name="channel_beta_media" if media_data.ndim == 3 else "beta_media",
-        fn=dist.HalfNormal(scale=cost_prior))
+        fn=dist.HalfNormal(scale=media_prior))
     if media_data.ndim == 3:
       with numpyro.plate(
           name="geo_media_plate",
@@ -202,30 +351,32 @@ def media_mix_model(
           dim=-1):
         beta_media = numpyro.sample(
             name="beta_media", fn=dist.HalfNormal(scale=beta_media))
-  with numpyro.plate(name="gamma_seasonality_sin_cos_plate", size=2):
-    with numpyro.plate(name="gamma_seasonality_plate",
+
+  with numpyro.plate(name=f"{_GAMMA_SEASONALITY}_sin_cos_plate", size=2):
+    with numpyro.plate(name=f"{_GAMMA_SEASONALITY}_plate",
                        size=degrees_seasonality):
       gamma_seasonality = numpyro.sample(
-          name="gamma_seasonality",
-          fn=dist.Normal(loc=0., scale=1.))
+          name=_GAMMA_SEASONALITY,
+          fn=custom_priors.get(
+              _GAMMA_SEASONALITY, default_priors[_GAMMA_SEASONALITY]))
 
   if weekday_seasonality:
-    with numpyro.plate(name="weekday_plate", size=7):
+    with numpyro.plate(name=f"{_WEEKDAY}_plate", size=7):
       weekday = numpyro.sample(
-          name="weekday",
-          fn=dist.Normal(loc=0., scale=.5))
+          name=_WEEKDAY,
+          fn=custom_priors.get(_WEEKDAY, default_priors[_WEEKDAY]))
     weekday_series = weekday[jnp.arange(data_size) % 7]
 
   media_transformed = numpyro.deterministic(
       name="media_transformed",
       value=transform_function(media_data,
-                               **transform_kwargs))
+                               custom_priors=custom_priors,
+                               **transform_kwargs if transform_kwargs else {}))
   seasonality = media_transforms.calculate_seasonality(
       number_periods=data_size,
       degrees=degrees_seasonality,
       frequency=frequency,
       gamma_seasonality=gamma_seasonality)
-
   # For national model's case
   trend = jnp.arange(data_size)
   media_einsum = "tc, c -> t"  # t = time, c = channel
@@ -240,11 +391,12 @@ def media_mix_model(
       weekday_series = jnp.expand_dims(weekday_series, axis=-1)
     with numpyro.plate(name="seasonality_plate", size=n_geos):
       beta_seasonality = numpyro.sample(
-          name="beta_seasonality",
-          fn=dist.HalfNormal(scale=.5))
+          name=_BETA_SEASONALITY,
+          fn=custom_priors.get(
+              _BETA_SEASONALITY, default_priors[_BETA_SEASONALITY]))
   # expo_trend is B(1, 1) so that the exponent on time is in [.5, 1.5].
   prediction = (
-      intercept + beta_trend * trend ** (expo_trend + 0.5) +
+      intercept + beta_trend * trend ** expo_trend +
       seasonality * beta_seasonality +
       jnp.einsum(media_einsum, media_transformed, beta_media))
   if extra_features is not None:
@@ -258,8 +410,9 @@ def media_mix_model(
     with numpyro.plate_stack(plate_prefixes,
                              sizes=extra_features_plates_shape):
       beta_extra_features = numpyro.sample(
-          name="beta_extra_features",
-          fn=dist.Normal(loc=0., scale=1.))
+          name=_BETA_EXTRA_FEATURES,
+          fn=custom_priors.get(
+              _BETA_EXTRA_FEATURES, default_priors[_BETA_EXTRA_FEATURES]))
     extra_features_effect = jnp.einsum(extra_features_einsum,
                                        extra_features,
                                        beta_extra_features)

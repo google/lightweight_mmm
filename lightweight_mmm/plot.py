@@ -919,7 +919,7 @@ def plot_media_baseline_contribution_area_plot(
   contribution_columns = [
       col for col in contribution_df.columns if "contribution" in col
   ]
-  contribution_df_for_plot = contribution_df.loc[:,contribution_columns]
+  contribution_df_for_plot = contribution_df.loc[:, contribution_columns]
   contribution_df_for_plot = contribution_df_for_plot[
       contribution_df_for_plot.columns[::-1]]
   period = np.arange(1, contribution_df_for_plot.shape[0] + 1)

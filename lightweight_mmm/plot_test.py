@@ -35,7 +35,7 @@ class PlotTest(parameterized.TestCase):
     cls.national_mmm.fit(
         media=jnp.ones((50, 5)),
         target=jnp.ones(50),
-        total_costs=jnp.ones(5) * 50,
+        media_prior=jnp.ones(5) * 50,
         number_warmup=2,
         number_samples=2,
         number_chains=1)
@@ -43,7 +43,7 @@ class PlotTest(parameterized.TestCase):
     cls.geo_mmm.fit(
         media=jnp.ones((50, 5, 3)),
         target=jnp.ones((50, 3)),
-        total_costs=jnp.ones(5) * 50,
+        media_prior=jnp.ones(5) * 50,
         number_warmup=2,
         number_samples=2,
         number_chains=1)

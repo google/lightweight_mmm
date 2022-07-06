@@ -83,7 +83,7 @@ def simulate_dummy_data(
     n_media_channels: int,
     n_extra_features: int,
     geos: int = 1,
-    seed: int = 0
+    seed: int = 5
     ) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
   """Simulates dummy data needed for media mix modelling.
 
@@ -114,7 +114,7 @@ def simulate_dummy_data(
   key = random.PRNGKey(seed)
   sub_keys = random.split(key=key, num=7)
   media_data = random.normal(key=sub_keys[0],
-                             shape=(data_size, n_media_channels)) * 2 + 20
+                             shape=(data_size, n_media_channels)) * 1.5 + 20
 
   extra_features = random.normal(key=sub_keys[1],
                                  shape=(data_size, n_extra_features)) + 5
@@ -137,7 +137,7 @@ def simulate_dummy_data(
   beta_extra_features = random.normal(key=sub_keys[4],
                                       shape=(n_extra_features,))
   # There is no trend to keep this very simple.
-  target = 10 + seasonality + media_data_transformed.dot(
+  target = 15 + seasonality + media_data_transformed.dot(
       beta_media) + extra_features.dot(beta_extra_features) + target_noise
 
   logging.info("Correlation between transformed media and target")

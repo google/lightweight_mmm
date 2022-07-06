@@ -89,7 +89,7 @@ point. The necessary data will be:
   another model to estimate them.
 - Target: Target KPI for the model to predict. For example, revenue amount, number of app installs. This will also be the metric
   optimized during the optimization phase.
-- Costs: The average cost per media unit per channel.
+- Costs: The total cost per media unit per channel.
 
 ```python
 # Let's assume we have the following datasets with the following shapes (we use
@@ -155,12 +155,34 @@ See an example below:
 mmm = lightweight_mmm.LightweightMMM()
 mmm.fit(media=media_data,
         extra_features=extra_features,
-        total_costs=costs,
+        media_prior=costs,
         target=target,
         number_warmup=1000,
         number_samples=1000,
         number_chains=2)
 ```
+
+If you want to change any prior in the model (besides the media prior which you
+are already specifying always), you can do so with `custom_priors`:
+
+```python
+# See detailed explanation on custom priors in our documentation.
+custom_priors = {"intercept": numpyro.distributions.Uniform(1, 5)}
+
+# Fit model.
+mmm = lightweight_mmm.LightweightMMM()
+mmm.fit(media=media_data,
+        extra_features=extra_features,
+        media_prior=costs,
+        target=target,
+        number_warmup=1000,
+        number_samples=1000,
+        number_chains=2,
+        custom_priors=custom_priors)
+```
+
+Please refer to our [documentation on custom_priors](https://lightweight-mmm.readthedocs.io/en/latest/models.html)
+for more details.
 
 You can switch between daily and weekly data by enabling
 `weekday_seasonality=True` and `seasonality_frequency=365` or

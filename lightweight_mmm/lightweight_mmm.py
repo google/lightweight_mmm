@@ -20,7 +20,7 @@ Simple usage of this class goes as following:
 mmm = lightweight_mmm.LightweightMMM()
 mmm.fit(media=media_data,
         extra_features=extra_features,
-        costs=costs,
+        media_prior=costs,
         target=target,
         number_samples=1000,
         number_chains=2)
@@ -33,23 +33,33 @@ mmm.predict(media=media_data_test, extra_features=extra_features_test)
 ```
 """
 
+import collections
 import dataclasses
 import functools
 import logging
-from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple
+import numbers
+from typing import Any, Callable, Dict, Mapping, MutableMapping, Optional, Sequence, Tuple, Union
 
 from absl import logging
-import frozendict
+import immutabledict
 import jax
 import jax.numpy as jnp
 import numpyro
+from numpyro import distributions as dist
 from numpyro import infer
 
 from lightweight_mmm import models
 from lightweight_mmm import preprocessing
 from lightweight_mmm import utils
 
-_NAMES_TO_MODEL_TRANSFORMS = frozendict.frozendict({
+Prior = Union[
+    dist.Distribution,
+    Dict[str, float],
+    Sequence[float],
+    float
+]
+
+_NAMES_TO_MODEL_TRANSFORMS = immutabledict.immutabledict({
     "hill_adstock": models.transform_hill_adstock,
     "adstock": models.transform_adstock,
     "carryover": models.transform_carryover
@@ -81,6 +91,8 @@ class LightweightMMM:
     media: The media data the model is trained on. Usefull for a variety of
       insights post model fitting.
     media_names: Names of the media channels passed at fitting time.
+    custom_priors: The set of custom priors the model was trained with. An empty
+      dictionary if none were passed.
   """
   model_name: str = "hill_adstock"
 
@@ -90,11 +102,55 @@ class LightweightMMM:
                        "following: 'hill_adstock', 'adstock', 'carryover'.")
     self._model_function = _MODEL_FUNCTION
     self._model_transform_function = _NAMES_TO_MODEL_TRANSFORMS[self.model_name]
+    self._prior_names = models.MODEL_PRIORS_NAMES.union(
+        models.TRANSFORM_PRIORS_NAMES[self.model_name])
+
+  def _preprocess_custom_priors(
+      self,
+      custom_priors: Dict[str, Prior]) -> MutableMapping[str, Prior]:
+    """Preprocesses the user input custom priors to Numpyro distributions.
+
+    If numpyro distributions are given they remains untouched, however if any
+    other option is passed, it is passed to the default distribution to alter
+    its constructor values.
+
+    Args:
+      custom_priors: Mapping of the name of the prior to its custom value.
+
+    Returns:
+      A mapping of names to numpyro distributions based on user input and
+        default values.
+    """
+    default_priors = {
+        **models._get_default_priors(),
+        **models._get_transform_default_priors()[self.model_name]
+    }
+    # Checking that the key is contained in custom_priors has already been done
+    # at this point in the fit function.
+    for prior_name in custom_priors:
+      if isinstance(custom_priors[prior_name], numbers.Number):
+        custom_priors[prior_name] = default_priors[prior_name].__class__(
+            custom_priors[prior_name])
+      elif (isinstance(custom_priors[prior_name], collections.Sequence) and
+            not isinstance(custom_priors[prior_name], str)):
+        custom_priors[prior_name] = default_priors[prior_name].__class__(
+            *custom_priors[prior_name])
+      elif isinstance(custom_priors[prior_name], dict):
+        custom_priors[prior_name] = default_priors[prior_name].__class__(
+            **custom_priors[prior_name])
+      elif not isinstance(custom_priors[prior_name], dist.Distribution):
+        raise ValueError(
+            "Priors given must be a Numpyro distribution or one of the "
+            "following to fit in the constructor of our default Numpyro "
+            "distribution. It could be given as args or kwargs as long as it "
+            "is the correct format for such object. Please refer to our "
+            "documentation on custom priors to know more.")
+    return custom_priors
 
   def fit(
       self,
       media: jnp.ndarray,
-      total_costs: jnp.ndarray,
+      media_prior: jnp.ndarray,
       target: jnp.ndarray,
       extra_features: Optional[jnp.ndarray] = None,
       degrees_seasonality: int = 2,
@@ -107,6 +163,7 @@ class LightweightMMM:
       target_accept_prob: float = .85,
       init_strategy: Callable[[Mapping[Any, Any], Any],
                               jnp.ndarray] = numpyro.infer.init_to_median,
+      custom_priors: Optional[Dict[str, Prior]] = None,
       seed: Optional[int] = None) -> None:
     """Fits MMM given the media data, extra features, costs and sales/KPI.
 
@@ -116,7 +173,7 @@ class LightweightMMM:
     Args:
       media: Media input data. Media data must have either 2 dims for national
         model or 3 for geo models.
-      total_costs: Costs of each media channel. The number of cost values must
+      media_prior: Costs of each media channel. The number of cost values must
         be equal to the number of media channels.
       target: Target KPI to use, like for example sales.
       extra_features: Other variables to add to the model.
@@ -136,6 +193,9 @@ class LightweightMMM:
         options can be found in
         https://num.pyro.ai/en/stable/utilities.html#initialization-strategies.
         Default is numpyro.infer.init_to_median.
+      custom_priors: The custom priors we want the model to take instead of the
+        default ones. Refer to the full documentation on custom priors for
+        details.
       seed: Seed to use for PRNGKey during training. For better replicability
         run all different trainings with the same seed.
     """
@@ -143,14 +203,34 @@ class LightweightMMM:
       raise ValueError(
           "Media data must have either 2 dims for national model or 3 for geo "
           "models.")
-    if media.ndim == 3 and total_costs.ndim == 1:
-      total_costs = jnp.expand_dims(total_costs, axis=-1)
+    if media.ndim == 3 and media_prior.ndim == 1:
+      media_prior = jnp.expand_dims(media_prior, axis=-1)
 
-    if media.shape[1] != len(total_costs):
+    if media.shape[1] != len(media_prior):
       raise ValueError("The number of data channels provided must match the "
                        "number of cost values.")
     if media.min() < 0:
       raise ValueError("Media values must be greater or equal to zero.")
+
+    if custom_priors:
+      not_used_custom_priors = set(custom_priors.keys()).difference(
+          self._prior_names)
+      if not_used_custom_priors:
+        raise ValueError(
+            "The following passed custom priors dont have a match in the model."
+            " Please double check the names have been written correctly: %s" %
+            not_used_custom_priors)
+      custom_priors = self._preprocess_custom_priors(
+          custom_priors=custom_priors)
+      geo_custom_priors = set(custom_priors.keys()).intersection(
+          models.GEO_ONLY_PRIORS)
+      if media.ndim == 2 and geo_custom_priors:
+        raise ValueError(
+            "The given data is for national models but custom_prior contains "
+            "priors for the geo version of the model. Please either remove geo "
+            "priors for national model or pass media data with geo dimension.")
+    else:
+      custom_priors = {}
 
     if weekday_seasonality and seasonality_frequency == 52:
       logging.warn("You have chosen daily seasonality and frequency 52 "
@@ -179,19 +259,21 @@ class LightweightMMM:
         media_data=jnp.array(media),
         extra_features=extra_features,
         target_data=jnp.array(target),
-        cost_prior=jnp.array(total_costs),
+        media_prior=jnp.array(media_prior),
         degrees_seasonality=degrees_seasonality,
         frequency=seasonality_frequency,
         transform_function=self._model_transform_function,
-        weekday_seasonality=weekday_seasonality)
+        weekday_seasonality=weekday_seasonality,
+        custom_priors=custom_priors)
 
+    self.custom_priors = custom_priors
     if media_names is not None:
       self.media_names = media_names
     else:
       self.media_names = [f"channel_{i}" for i in range(media.shape[1])]
     self.n_media_channels = media.shape[1]
     self.n_geos = media.shape[2] if media.ndim == 3 else 1
-    self._total_costs = total_costs
+    self._media_prior = media_prior
     self.trace = mcmc.get_samples()
     self._number_warmup = number_warmup
     self._number_samples = number_samples
@@ -217,14 +299,19 @@ class LightweightMMM:
       static_argnums=(0,),
       static_argnames=("degrees_seasonality", "weekday_seasonality",
                        "transform_function", "model"))
-  def _predict(self, rng_key: jnp.ndarray, media_data: jnp.ndarray,
-               extra_features: Optional[jnp.ndarray], cost_prior: jnp.ndarray,
-               degrees_seasonality: int, frequency: int,
-               transform_function: Callable[[Any], jnp.ndarray],
-               weekday_seasonality: bool,
-               model: Callable[[Any], None],
-               posterior_samples: Dict[str, jnp.ndarray]
-               ) -> Dict[str, jnp.ndarray]:
+  def _predict(
+      self,
+      rng_key: jnp.ndarray,
+      media_data: jnp.ndarray,
+      extra_features: Optional[jnp.ndarray],
+      media_prior: jnp.ndarray,
+      degrees_seasonality: int, frequency: int,
+      transform_function: Callable[[Any], jnp.ndarray],
+      weekday_seasonality: bool,
+      model: Callable[[Any], None],
+      posterior_samples: Dict[str, jnp.ndarray],
+      custom_priors: Dict[str, Prior]
+      ) -> Dict[str, jnp.ndarray]:
     """Encapsulates the numpyro.infer.Predictive function for predict method.
 
     It serves as a helper jitted function for running predictions.
@@ -233,13 +320,16 @@ class LightweightMMM:
       rng_key: A jax.random.PRNGKey.
       media_data: Media array for needed for the model to run predictions.
       extra_features: Extra features for needed for the model to run.
-      cost_prior: Cost prior used for training the model.
+      media_prior: Cost prior used for training the model.
       degrees_seasonality: Number of degrees for the seasonality.
       frequency: Frequency of the seasonality.
       transform_function: Media transform function to use within the model.
       weekday_seasonality: Allow daily weekday estimation.
       model: Numpyro model to use for numpyro.infer.Predictive.
       posterior_samples: Mapping of the posterior samples.
+      custom_priors: The custom priors we want the model to take instead of the
+        default ones. Refer to the full documentation on custom priors for
+        details.
 
     Returns:
       The predictions for the given data.
@@ -249,11 +339,12 @@ class LightweightMMM:
             rng_key=rng_key,
             media_data=media_data,
             extra_features=extra_features,
-            cost_prior=cost_prior,
+            media_prior=media_prior,
             target_data=None,
             degrees_seasonality=degrees_seasonality,
             frequency=frequency,
             transform_function=transform_function,
+            custom_priors=custom_priors,
             weekday_seasonality=weekday_seasonality)
 
   def predict(
@@ -324,12 +415,13 @@ class LightweightMMM:
         rng_key=jax.random.PRNGKey(seed=seed),
         media_data=full_media,
         extra_features=full_extra_features,
-        cost_prior=jnp.array(self._total_costs),
+        media_prior=jnp.array(self._media_prior),
         degrees_seasonality=self._degrees_seasonality,
         frequency=self._seasonality_frequency,
         weekday_seasonality=self._weekday_seasonality,
         transform_function=self._model_transform_function,
         model=self._model_function,
+        custom_priors=self.custom_priors,
         posterior_samples=self.trace)["mu"][:, previous_media.shape[0]:]
     if target_scaler:
       prediction = target_scaler.inverse_transform(prediction)
@@ -404,9 +496,9 @@ class LightweightMMM:
                       "training you can ignore this warning.")
     if unscaled_costs is None:
       if cost_scaler:
-        unscaled_costs = cost_scaler.inverse_transform(self._total_costs)
+        unscaled_costs = cost_scaler.inverse_transform(self._media_prior)
       else:
-        unscaled_costs = self._total_costs
+        unscaled_costs = self._media_prior
 
     if self.media.ndim == 3:
       # cost shape (channel, geo) -> add a new axis to (channel, geo, sample)
