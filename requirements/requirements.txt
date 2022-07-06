@@ -15,7 +15,7 @@
 absl-py
 arviz==0.11.2
 dataclasses;python_version<'3.7'
-frozendict
+immutabledict>=2.0.0
 jax>=0.3.14
 jaxlib>=0.3.14
 matplotlib==3.3.4
