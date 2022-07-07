@@ -131,7 +131,7 @@ class LightweightMMM:
       if isinstance(custom_priors[prior_name], numbers.Number):
         custom_priors[prior_name] = default_priors[prior_name].__class__(
             custom_priors[prior_name])
-      elif (isinstance(custom_priors[prior_name], collections.Sequence) and
+      elif (isinstance(custom_priors[prior_name], collections.abc.Sequence) and
             not isinstance(custom_priors[prior_name], str)):
         custom_priors[prior_name] = default_priors[prior_name].__class__(
             *custom_priors[prior_name])
