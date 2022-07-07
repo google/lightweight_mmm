@@ -21,8 +21,14 @@ three different models.
   - Hill-Adstock
   - Carryover
 """
+import sys
+#  pylint: disable=g-import-not-at-top
+if sys.version_info >= (3, 8):
+  from typing import Protocol
+else:
+  from typing_extensions import Protocol
 
-from typing import Any, Dict, Mapping, MutableMapping, Protocol, Optional, Sequence, Union
+from typing import Any, Dict, Mapping, MutableMapping, Optional, Sequence, Union
 
 import immutabledict
 import jax.numpy as jnp
