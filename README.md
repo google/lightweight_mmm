@@ -334,6 +334,6 @@ this is not a straight forward way and we recommend you to keep this.
 
 ## Community Spotlight
 
-- [Are Marketing Mix Models Useful? I Spent My Own Money To Find Out](https://forecastegy.com/posts/marketing-mix-models/) by Mario Filho.
+- [How To Create A Marketing Mix Model With LightweightMMM](https://forecastegy.com/posts/how-to-create-a-marketing-mix-model-with-lightweightmmm/) by Mario Filho.
 
 - [How Google LightweightMMM Works](https://getrecast.com/google-lightweightmmm/) by Mike Taylor.
