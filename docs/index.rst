@@ -35,6 +35,11 @@ If you want to use the most recent and slightly less stable version you can inst
 
    models
 
+.. toctree::
+   :caption: Custom priors
+   :maxdepth: 1
+
+   custom_priors
 
 .. toctree::
    :caption: API Documentation

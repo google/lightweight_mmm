@@ -181,7 +181,7 @@ mmm.fit(media=media_data,
         custom_priors=custom_priors)
 ```
 
-Please refer to our [documentation on custom_priors](https://lightweight-mmm.readthedocs.io/en/latest/models.html)
+Please refer to our [documentation on custom_priors](https://lightweight-mmm.readthedocs.io/en/latest/custom_priors.html)
 for more details.
 
 You can switch between daily and weekly data by enabling

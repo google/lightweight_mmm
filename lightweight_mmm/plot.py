@@ -164,7 +164,7 @@ def create_media_baseline_contribution_df(
 
   scaled_media_contribution = jnp.einsum(
       einsum_str, media_mix_model.trace["media_transformed"],
-      media_mix_model.trace["beta_media"])
+      media_mix_model.trace["coef_media"])
 
   if media_mix_model.trace["media_transformed"].ndim > 3:
     # Aggregate media channel contribution across geos.
@@ -680,14 +680,14 @@ def plot_media_channel_posteriors(
     raise lightweight_mmm.NotFittedModelError(
         "Model needs to be fit first before attempting to plot its fit.")
 
-  n_media_channels = np.shape(media_mix_model.trace["beta_media"])[1]
+  n_media_channels = np.shape(media_mix_model.trace["coef_media"])[1]
   n_geos = (
       media_mix_model.media.shape[2] if media_mix_model.media.ndim == 3 else 1)
 
   if not fig_size:
     fig_size = (5 * n_geos, 3 * n_media_channels)
 
-  media_channel_posteriors = media_mix_model.trace["beta_media"]
+  media_channel_posteriors = media_mix_model.trace["coef_media"]
   if channel_names is None:
     channel_names = np.arange(np.shape(media_channel_posteriors)[1])
   fig, axes = plt.subplots(

@@ -355,7 +355,7 @@ class PlotTest(parameterized.TestCase):
     mmm_object.trace = {
         "media_transformed": jnp.ones((500, 1, 3)) * jnp.arange(1, 4),
         "mu": jnp.ones((500, 1)) * 10,
-        "beta_media": jnp.ones((500, 3)) * 0.5
+        "coef_media": jnp.ones((500, 3)) * 0.5
     }
     expected_contribution_pct = jnp.array([0.05, 0.1, 0.15])
 

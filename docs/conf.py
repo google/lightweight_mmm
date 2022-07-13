@@ -87,7 +87,8 @@ html_static_path = []
 html_static_path = ['_static']
 
 nbsphinx_codecell_lexer = 'ipython3'
-
+nbsphinx_execute = 'never'
+jupyter_execute_notebooks = 'off'
 
 # -- Extension configuration -------------------------------------------------
 

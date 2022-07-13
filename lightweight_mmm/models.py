@@ -56,23 +56,23 @@ class TransformFunction(Protocol):
 
 
 _INTERCEPT = "intercept"
-_BETA_TREND = "beta_trend"
+_COEF_TREND = "coef_trend"
 _EXPO_TREND = "expo_trend"
 _SIGMA = "sigma"
 _GAMMA_SEASONALITY = "gamma_seasonality"
 _WEEKDAY = "weekday"
-_BETA_EXTRA_FEATURES = "beta_extra_features"
-_BETA_SEASONALITY = "beta_seasonality"
+_COEF_EXTRA_FEATURES = "coef_extra_features"
+_COEF_SEASONALITY = "coef_seasonality"
 
 MODEL_PRIORS_NAMES = frozenset((
     _INTERCEPT,
-    _BETA_TREND,
+    _COEF_TREND,
     _EXPO_TREND,
     _SIGMA,
     _GAMMA_SEASONALITY,
     _WEEKDAY,
-    _BETA_EXTRA_FEATURES,
-    _BETA_SEASONALITY))
+    _COEF_EXTRA_FEATURES,
+    _COEF_SEASONALITY))
 
 _EXPONENT = "exponent"
 _LAG_WEIGHT = "lag_weight"
@@ -90,7 +90,7 @@ TRANSFORM_PRIORS_NAMES = immutabledict.immutabledict({
         frozenset((_LAG_WEIGHT, _HALF_MAX_EFFECTIVE_CONCENTRATION, _SLOPE))
 })
 
-GEO_ONLY_PRIORS = frozenset((_BETA_SEASONALITY,))
+GEO_ONLY_PRIORS = frozenset((_COEF_SEASONALITY,))
 
 
 def _get_default_priors() -> Mapping[str, Prior]:
@@ -98,13 +98,13 @@ def _get_default_priors() -> Mapping[str, Prior]:
   # priors from a function.
   return immutabledict.immutabledict({
       _INTERCEPT: dist.HalfNormal(scale=2.),
-      _BETA_TREND: dist.Normal(loc=0., scale=1.),
+      _COEF_TREND: dist.Normal(loc=0., scale=1.),
       _EXPO_TREND: dist.Uniform(low=0.5, high=1.5),
       _SIGMA: dist.Gamma(concentration=1., rate=1.),
       _GAMMA_SEASONALITY: dist.Normal(loc=0., scale=1.),
       _WEEKDAY: dist.Normal(loc=0., scale=.5),
-      _BETA_EXTRA_FEATURES: dist.Normal(loc=0., scale=1.),
-      _BETA_SEASONALITY: dist.HalfNormal(scale=.5)
+      _COEF_EXTRA_FEATURES: dist.Normal(loc=0., scale=1.),
+      _COEF_SEASONALITY: dist.HalfNormal(scale=.5)
   })
 
 
@@ -305,10 +305,8 @@ def media_mix_model(
       model. Currently the following are supported: 'transform_adstock',
         'transform_carryover' and 'transform_hill_adstock'.
     custom_priors: The custom priors we want the model to take instead of the
-      default ones. The possible names of parameters for the main part of the
-      model are: "intercept", "beta_trend", "expo_trend", "beta_media", "sigma",
-      "gamma_seasonality", "weekday" and "beta_extra_features". Please refer to
-      the transform function for its respective parameters.
+      default ones. See our custom_priors documentation for details about the
+      API and possible options.
     transform_kwargs: Any extra keyword arguments to pass to the transform
       function. For example the adstock function can take a boolean to noramlise
       output or not.
@@ -333,10 +331,10 @@ def media_mix_model(
         fn=custom_priors.get(_SIGMA, default_priors[_SIGMA]))
 
   # TODO(): Force all geos to have the same trend sign.
-  with numpyro.plate(name=f"{_BETA_TREND}_plate", size=n_geos):
-    beta_trend = numpyro.sample(
-        name=_BETA_TREND,
-        fn=custom_priors.get(_BETA_TREND, default_priors[_BETA_TREND]))
+  with numpyro.plate(name=f"{_COEF_TREND}_plate", size=n_geos):
+    coef_trend = numpyro.sample(
+        name=_COEF_TREND,
+        fn=custom_priors.get(_COEF_TREND, default_priors[_COEF_TREND]))
 
   expo_trend = numpyro.sample(
       name=_EXPO_TREND,
@@ -347,16 +345,16 @@ def media_mix_model(
       name="channel_media_plate",
       size=n_channels,
       dim=-2 if media_data.ndim == 3 else -1):
-    beta_media = numpyro.sample(
-        name="channel_beta_media" if media_data.ndim == 3 else "beta_media",
+    coef_media = numpyro.sample(
+        name="channel_coef_media" if media_data.ndim == 3 else "coef_media",
         fn=dist.HalfNormal(scale=media_prior))
     if media_data.ndim == 3:
       with numpyro.plate(
           name="geo_media_plate",
           size=n_geos,
           dim=-1):
-        beta_media = numpyro.sample(
-            name="beta_media", fn=dist.HalfNormal(scale=beta_media))
+        coef_media = numpyro.sample(
+            name="coef_media", fn=dist.HalfNormal(scale=coef_media))
 
   with numpyro.plate(name=f"{_GAMMA_SEASONALITY}_sin_cos_plate", size=2):
     with numpyro.plate(name=f"{_GAMMA_SEASONALITY}_plate",
@@ -386,7 +384,7 @@ def media_mix_model(
   # For national model's case
   trend = jnp.arange(data_size)
   media_einsum = "tc, c -> t"  # t = time, c = channel
-  beta_seasonality = 1
+  coef_seasonality = 1
 
   # TODO(): Add conversion of prior for HalfNormal distribution.
   if media_data.ndim == 3:  # For geo model's case
@@ -396,15 +394,15 @@ def media_mix_model(
     if weekday_seasonality:
       weekday_series = jnp.expand_dims(weekday_series, axis=-1)
     with numpyro.plate(name="seasonality_plate", size=n_geos):
-      beta_seasonality = numpyro.sample(
-          name=_BETA_SEASONALITY,
+      coef_seasonality = numpyro.sample(
+          name=_COEF_SEASONALITY,
           fn=custom_priors.get(
-              _BETA_SEASONALITY, default_priors[_BETA_SEASONALITY]))
+              _COEF_SEASONALITY, default_priors[_COEF_SEASONALITY]))
   # expo_trend is B(1, 1) so that the exponent on time is in [.5, 1.5].
   prediction = (
-      intercept + beta_trend * trend ** expo_trend +
-      seasonality * beta_seasonality +
-      jnp.einsum(media_einsum, media_transformed, beta_media))
+      intercept + coef_trend * trend ** expo_trend +
+      seasonality * coef_seasonality +
+      jnp.einsum(media_einsum, media_transformed, coef_media))
   if extra_features is not None:
     plate_prefixes = ("extra_feature",)
     extra_features_einsum = "tf, f -> t"  # t = time, f = feature
@@ -415,13 +413,13 @@ def media_mix_model(
       extra_features_plates_shape = (extra_features.shape[1], *geo_shape)
     with numpyro.plate_stack(plate_prefixes,
                              sizes=extra_features_plates_shape):
-      beta_extra_features = numpyro.sample(
-          name=_BETA_EXTRA_FEATURES,
+      coef_extra_features = numpyro.sample(
+          name=_COEF_EXTRA_FEATURES,
           fn=custom_priors.get(
-              _BETA_EXTRA_FEATURES, default_priors[_BETA_EXTRA_FEATURES]))
+              _COEF_EXTRA_FEATURES, default_priors[_COEF_EXTRA_FEATURES]))
     extra_features_effect = jnp.einsum(extra_features_einsum,
                                        extra_features,
-                                       beta_extra_features)
+                                       coef_extra_features)
     prediction += extra_features_effect
 
   if weekday_seasonality:

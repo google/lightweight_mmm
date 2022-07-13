@@ -159,11 +159,11 @@ class ModelsTest(parameterized.TestCase):
     self.assertEqual(
         jnp.squeeze(trace["expo_trend"].mean(axis=0)).shape, ())
     self.assertEqual(
-        jnp.squeeze(trace["beta_trend"].mean(axis=0)).shape, target_shape[1:])
+        jnp.squeeze(trace["coef_trend"].mean(axis=0)).shape, target_shape[1:])
     self.assertEqual(
-        jnp.squeeze(trace["beta_media"].mean(axis=0)).shape, media_shape[1:])
+        jnp.squeeze(trace["coef_media"].mean(axis=0)).shape, media_shape[1:])
     if extra_features_shape:
-      self.assertEqual(trace["beta_extra_features"].mean(axis=0).shape,
+      self.assertEqual(trace["coef_extra_features"].mean(axis=0).shape,
                        extra_features.shape[1:])
     self.assertEqual(trace["gamma_seasonality"].mean(axis=0).shape,
                      (degrees, 2))
@@ -175,8 +175,8 @@ class ModelsTest(parameterized.TestCase):
           prior_name=models._INTERCEPT,
           transform_function=models.transform_carryover),
       dict(
-          testcase_name=f"model_{models._BETA_TREND}",
-          prior_name=models._BETA_TREND,
+          testcase_name=f"model_{models._COEF_TREND}",
+          prior_name=models._COEF_TREND,
           transform_function=models.transform_carryover),
       dict(
           testcase_name=f"model_{models._EXPO_TREND}",
@@ -195,12 +195,12 @@ class ModelsTest(parameterized.TestCase):
           prior_name=models._WEEKDAY,
           transform_function=models.transform_carryover),
       dict(
-          testcase_name=f"model_{models._BETA_EXTRA_FEATURES}",
-          prior_name=models._BETA_EXTRA_FEATURES,
+          testcase_name=f"model_{models._COEF_EXTRA_FEATURES}",
+          prior_name=models._COEF_EXTRA_FEATURES,
           transform_function=models.transform_carryover),
       dict(
-          testcase_name=f"model_{models._BETA_SEASONALITY}",
-          prior_name=models._BETA_SEASONALITY,
+          testcase_name=f"model_{models._COEF_SEASONALITY}",
+          prior_name=models._COEF_SEASONALITY,
           transform_function=models.transform_carryover),
       dict(
           testcase_name=f"carryover_{models._AD_EFFECT_RETENTION_RATE}",

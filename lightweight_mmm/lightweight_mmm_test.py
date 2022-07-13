@@ -161,7 +161,7 @@ class LightweightMmmTest(parameterized.TestCase):
           target=target,
           extra_features=extra_features,
           media_prior=costs,
-          custom_priors={models._BETA_SEASONALITY: dist.HalfNormal(3)})
+          custom_priors={models._COEF_SEASONALITY: dist.HalfNormal(3)})
 
   @parameterized.named_parameters([
       dict(
@@ -259,7 +259,7 @@ class LightweightMmmTest(parameterized.TestCase):
     mmm_object.trace = {
         "media_transformed": jnp.ones((500, 140, 3)) * jnp.arange(1, 4),
         "mu": jnp.ones((500, 140)),
-        "beta_media": jnp.ones((500, 3)) * 6
+        "coef_media": jnp.ones((500, 3)) * 6
     }
     contribution, roi = mmm_object.get_posterior_metrics()
     np.testing.assert_array_almost_equal(

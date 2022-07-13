@@ -521,7 +521,7 @@ class LightweightMMM:
       einsum_str = "stcg, scg -> scg"
 
     media_contribution = jnp.einsum(einsum_str, self.trace["media_transformed"],
-                                    jnp.squeeze(self.trace["beta_media"]))
+                                    jnp.squeeze(self.trace["coef_media"]))
 
     # aggregate posterior_pred across time:
     sum_scaled_prediction = jnp.sum(posterior_pred, axis=1)
