@@ -30,6 +30,8 @@ from sklearn import metrics
 from lightweight_mmm import lightweight_mmm
 from lightweight_mmm import preprocessing
 
+_PALETTE = sns.color_palette(n_colors=100)
+
 
 @functools.partial(jax.jit, static_argnames=("media_mix_model"))
 def _make_single_prediction(media_mix_model: lightweight_mmm.LightweightMMM,
@@ -403,13 +405,13 @@ def plot_response_curves(
         x=media_ranges[:, i],
         y=predictions[:, i],
         label=media_mix_model.media_names[i],
-        color=sns.color_palette()[i],
+        color=_PALETTE[i],
         ax=ax)
     sns.lineplot(
         x=media_ranges[:, i],
         y=jnp.log(predictions[:, i]) if apply_log_scale else predictions[:, i],
         label=media_mix_model.media_names[i],
-        color=sns.color_palette()[i],
+        color=_PALETTE[i],
         ax=last_ax)
     if optimal_allocation_per_timeunit is not None:
       ax.plot(
@@ -418,14 +420,14 @@ def plot_response_curves(
           marker="o",
           markersize=marker_size,
           label="avg_spend",
-          color=sns.color_palette()[i])
+          color=_PALETTE[i])
       ax.plot(
           optimal_allocation_per_timeunit[i],
           optimal_allocation_predictions[i],
           marker="x",
           markersize=marker_size + 2,
           label="optimal_spend",
-          color=sns.color_palette()[i])
+          color=_PALETTE[i])
     ax.set_ylabel(kpi_label)
     ax.set_xlabel("Normalized Spend" if not media_scaler else "Spend")
     ax.legend(fontsize=legend_fontsize)
