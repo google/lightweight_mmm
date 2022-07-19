@@ -288,7 +288,7 @@ def media_mix_model(
     frequency: int,
     transform_function: TransformFunction,
     custom_priors: MutableMapping[str, Prior],
-    transform_kwargs: Optional[Mapping[str, Any]] = None,
+    transform_kwargs: Optional[MutableMapping[str, Any]] = None,
     weekday_seasonality: bool = False,
     extra_features: Optional[jnp.array] = None
     ) -> None:
@@ -370,6 +370,11 @@ def media_mix_model(
           name=_WEEKDAY,
           fn=custom_priors.get(_WEEKDAY, default_priors[_WEEKDAY]))
     weekday_series = weekday[jnp.arange(data_size) % 7]
+    # In case of daily data, number of lags should be 13*7.
+    if transform_function == "carryover" and transform_kwargs and "number_lags" not in transform_kwargs:
+      transform_kwargs["number_lags"] = 13 * 7
+    elif transform_function == "carryover" and not transform_kwargs:
+      transform_kwargs = {"number_lags": 13 * 7}
 
   media_transformed = numpyro.deterministic(
       name="media_transformed",
