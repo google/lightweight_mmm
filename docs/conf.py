@@ -55,7 +55,6 @@ extensions = [
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
     'nbsphinx',
-    'sphinx_markdown_tables',
     'myst_nb',  # This is used for the .ipynb notebooks
 ]
 
