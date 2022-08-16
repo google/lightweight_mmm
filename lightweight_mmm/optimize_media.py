@@ -107,17 +107,17 @@ def _get_lower_and_upper_bounds(
 ) -> optimize.Bounds:
   """Gets the lower and upper bounds for optimisation based on historic data.
 
-  It creates an upper bound based on a percentage above the maximum value on
-  each channel and a lower bound based on a relative decrease of the minimum
+  It creates an upper bound based on a percentage above the mean value on
+  each channel and a lower bound based on a relative decrease of the mean
   value.
 
   Args:
-    media: Media data to get historic maxes and mins.
+    media: Media data to get historic mean.
     n_time_periods: Number of time periods to optimize for. If model is built on
       weekly data, this would be the number of weeks ahead to optimize.
-    lower_pct: Relative percentage decrease from the min value to consider as
+    lower_pct: Relative percentage decrease from the mean value to consider as
       new lower bound.
-    upper_pct: Relative percentage increase from the max value to consider as
+    upper_pct: Relative percentage increase from the mean value to consider as
       new upper bound.
     media_scaler: Scaler that was used to scale the media data before training.
 
@@ -127,8 +127,9 @@ def _get_lower_and_upper_bounds(
   if media.ndim == 3:
     lower_pct = jnp.expand_dims(lower_pct, axis=-1)
     upper_pct = jnp.expand_dims(upper_pct, axis=-1)
-  lower_bounds = jnp.maximum(media.min(axis=0) * (1 - lower_pct), 0)
-  upper_bounds = media.max(axis=0) * (1 + upper_pct)
+  mean_data = media.mean(axis=0)
+  lower_bounds = jnp.maximum(mean_data * (1 - lower_pct), 0)
+  upper_bounds = mean_data * (1 + upper_pct)
   if media_scaler:
     lower_bounds = media_scaler.inverse_transform(lower_bounds)
     upper_bounds = media_scaler.inverse_transform(upper_bounds)
@@ -203,9 +204,9 @@ def find_optimal_budgets(
       place correctly.
     target_scaler: Scaler that was used to scale the target before training.
     media_scaler: Scaler that was used to scale the media data before training.
-    bounds_lower_pct: Relative percentage decrease from the min value to
+    bounds_lower_pct: Relative percentage decrease from the mean value to
       consider as new lower bound.
-    bounds_upper_pct: Relative percentage increase from the max value to
+    bounds_upper_pct: Relative percentage increase from the mean value to
       consider as new upper bound.
     max_iterations: Number of max iterations to use for the SLSQP scipy
       optimizer. Default is 200.
