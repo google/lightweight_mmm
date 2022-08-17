@@ -30,6 +30,8 @@ from sklearn import metrics
 from lightweight_mmm import lightweight_mmm
 from lightweight_mmm import preprocessing
 
+plt.style.use("default")
+
 _PALETTE = sns.color_palette(n_colors=100)
 
 
@@ -264,7 +266,7 @@ def plot_response_curves(
     steps: int = 50,
     percentage_add: float = 0.2,
     apply_log_scale: bool = False,
-    figure_size: Tuple[int, int] = (10, 14),
+    figure_size: Tuple[int, int] = (8, 10),
     n_columns: int = 3,
     marker_size: int = 8,
     legend_fontsize: int = 8,
@@ -898,7 +900,7 @@ def plot_media_baseline_contribution_area_plot(
     media_mix_model: lightweight_mmm.LightweightMMM,
     target_scaler: Optional[preprocessing.CustomScaler] = None,
     channel_names: Optional[Sequence[Any]] = None,
-    fig_size: Optional[Tuple[int, int]] = (30, 10)
+    fig_size: Optional[Tuple[int, int]] = (20, 7)
 ) -> matplotlib.figure.Figure:
   """Plots an area chart to visualize weekly media & baseline contribution.
 
