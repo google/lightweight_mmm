@@ -14,6 +14,8 @@
 
 """Tests for lightweight_mmm."""
 
+import copy
+
 from absl.testing import absltest
 from absl.testing import parameterized
 import jax.numpy as jnp
@@ -230,6 +232,34 @@ class LightweightMmmTest(parameterized.TestCase):
     self.assertEqual(mmm_object.trace["weekday"].shape, (5, 7))
 
   @parameterized.named_parameters([
+      dict(testcase_name="trace", attribute_name="trace"),
+      dict(testcase_name="n_media_channels", attribute_name="n_media_channels"),
+      dict(testcase_name="n_geos", attribute_name="n_geos"),
+      dict(testcase_name="_number_warmup", attribute_name="_number_warmup"),
+      dict(testcase_name="_number_samples", attribute_name="_number_samples"),
+      dict(testcase_name="_number_chains", attribute_name="_number_chains"),
+      dict(testcase_name="_target", attribute_name="_target"),
+      dict(
+          testcase_name="_train_media_size",
+          attribute_name="_train_media_size"),
+      dict(
+          testcase_name="_degrees_seasonality",
+          attribute_name="_degrees_seasonality"),
+      dict(
+          testcase_name="_seasonality_frequency",
+          attribute_name="_seasonality_frequency"),
+      dict(
+          testcase_name="_weekday_seasonality",
+          attribute_name="_weekday_seasonality"),
+      dict(testcase_name="extra_features", attribute_name="extra_features"),
+      dict(testcase_name="media", attribute_name="media"),
+      dict(testcase_name="custom_priors", attribute_name="custom_priors"),
+  ])
+  def test_fitting_attributes_do_not_exist_before_fitting(self, attribute_name):
+    mmm_object = lightweight_mmm.LightweightMMM()
+    self.assertFalse(hasattr(mmm_object, attribute_name))
+
+  @parameterized.named_parameters([
       dict(
           testcase_name="geo_mmm",
           media_mix_model="geo_mmm"),
@@ -348,6 +378,94 @@ class LightweightMmmTest(parameterized.TestCase):
 
     with self.assertRaises(ValueError):
       mmm_object.reduce_trace(200)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="national_mmm",
+          media_mix_model="national_mmm"),
+      dict(
+          testcase_name="geo_mmm",
+          media_mix_model="geo_mmm"),
+  ])
+  def test_equality_method_lmmm_instance_equals_itself(self, media_mix_model):
+    mmm_object = getattr(self, media_mix_model)
+    self.assertEqual(mmm_object, mmm_object)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="national_mmm",
+          media_mix_model_1="national_mmm",
+          media_mix_model_2="national_mmm"),
+      dict(
+          testcase_name="geo_mmm",
+          media_mix_model_1="geo_mmm",
+          media_mix_model_2="geo_mmm"),
+  ])
+  def test_two_lmmm_instances_equal_each_other(self, media_mix_model_1,
+                                               media_mix_model_2):
+    mmm_object_1 = getattr(self, media_mix_model_1)
+    mmm_object_2 = copy.copy(getattr(self, media_mix_model_2))
+    self.assertEqual(mmm_object_1, mmm_object_2)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="national_mmm",
+          media_mix_model_1="national_mmm",
+          media_mix_model_2="national_mmm"),
+      dict(
+          testcase_name="geo_mmm",
+          media_mix_model_1="geo_mmm",
+          media_mix_model_2="geo_mmm"),
+  ])
+  def test_two_lmmm_instances_equal_each_other_deepcopy(self, media_mix_model_1,
+                                                        media_mix_model_2):
+    mmm_object_1 = getattr(self, media_mix_model_1)
+    mmm_object_2 = copy.deepcopy(getattr(self, media_mix_model_2))
+    self.assertEqual(mmm_object_1, mmm_object_2)
+
+  def test_different_lmmms_are_not_equal(self):
+    self.assertNotEqual(self.national_mmm, self.geo_mmm)
+
+  def test_default_mmm_instances_equal_each_other(self):
+    self.assertEqual(lightweight_mmm.LightweightMMM(),
+                     lightweight_mmm.LightweightMMM())
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="hill_adstock",
+          model_name="hill_adstock",
+          expected_equal=False),
+      dict(
+          testcase_name="adstock",
+          model_name="adstock",
+          expected_equal=False),
+      dict(
+          testcase_name="carryover",
+          model_name="carryover",
+          expected_equal=True),
+  ])
+  def test_default_carryover_mmm_instance_only_equals_carryover_mmms(
+      self, model_name, expected_equal):
+    carryover_mmm = lightweight_mmm.LightweightMMM(model_name="carryover")
+    other_mmm = lightweight_mmm.LightweightMMM(model_name=model_name)
+
+    if expected_equal:
+      self.assertEqual(carryover_mmm, other_mmm)
+    else:
+      self.assertNotEqual(carryover_mmm, other_mmm)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="national_mmm",
+          media_mix_model="national_mmm"),
+      dict(
+          testcase_name="geo_mmm",
+          media_mix_model="geo_mmm"),
+  ])
+  def test_fitted_mmm_does_not_equal_default_mmm(self, media_mix_model):
+    default_mmm_object = lightweight_mmm.LightweightMMM()
+    fitted_mmm_object = getattr(self, media_mix_model)
+    self.assertNotEqual(default_mmm_object, fitted_mmm_object)
 
 if __name__ == "__main__":
   absltest.main()

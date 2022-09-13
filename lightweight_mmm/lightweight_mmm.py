@@ -36,6 +36,7 @@ mmm.predict(media=media_data_test, extra_features=extra_features_test)
 import collections
 import dataclasses
 import functools
+import itertools
 import logging
 import numbers
 from typing import Any, Callable, Dict, Mapping, MutableMapping, Optional, Sequence, Tuple, Union
@@ -67,11 +68,44 @@ _NAMES_TO_MODEL_TRANSFORMS = immutabledict.immutabledict({
 _MODEL_FUNCTION = models.media_mix_model
 
 
+def _compare_equality_for_lmmm(item_1: Any, item_2: Any) -> bool:
+  """Compares two items for equality.
+
+  Helper function for the __eq__ method of LightweightmMM. Uses jnp.array_equal
+  if the items are jax.numpy.DeviceArray, and uses items' __eq__ otherwise.
+
+  Note: this implementation does not covery every possible data structure, but
+  it does cover all the data structures seen in attributes used by
+  LightweightMMM. Sometimes the DeviceArray is hidden in the value of a
+  MutableMapping, hence the recursion.
+
+  Args:
+    item_1: First item to be compared.
+    item_2: Second item to be compared.
+
+  Returns:
+    Boolean for whether item_1 equals item_2.
+  """
+  if isinstance(item_1, jnp.DeviceArray) and isinstance(item_2,
+                                                        jnp.DeviceArray):
+    is_equal = jnp.array_equal(item_1, item_2)
+  elif isinstance(item_1, MutableMapping) and isinstance(
+      item_2, MutableMapping):
+    is_equal = all([
+        _compare_equality_for_lmmm(item_1[x], item_2[x])
+        for x in item_1.keys() | item_2.keys()
+    ])
+  else:
+    is_equal = item_1 == item_2
+
+  return is_equal
+
+
 class NotFittedModelError(Exception):
   pass
 
 
-@dataclasses.dataclass(unsafe_hash=True)
+@dataclasses.dataclass(unsafe_hash=True, eq=False)
 class LightweightMMM:
   """Lightweight Media Mix Modelling wrapper for bayesian models.
 
@@ -95,6 +129,28 @@ class LightweightMMM:
       dictionary if none were passed.
   """
   model_name: str = "hill_adstock"
+  n_media_channels: int = dataclasses.field(init=False, repr=False)
+  n_geos: int = dataclasses.field(init=False, repr=False)
+  media: jnp.DeviceArray = dataclasses.field(
+      init=False, repr=False, hash=False, compare=True)
+  media_names: Sequence[str] = dataclasses.field(
+      init=False, repr=False, hash=False, compare=True)
+  trace: dict[str, jnp.DeviceArray] = dataclasses.field(
+      init=False, repr=False, hash=False, compare=False)
+  custom_priors: MutableMapping[str, Prior] = dataclasses.field(
+      init=False, repr=False, hash=False, compare=True)
+  _degrees_seasonality: int = dataclasses.field(init=False, repr=False)
+  _weekday_seasonality: bool = dataclasses.field(init=False, repr=False)
+  _media_prior: jnp.DeviceArray = dataclasses.field(
+      init=False, repr=False, hash=False, compare=True)
+  _extra_features: jnp.DeviceArray = dataclasses.field(
+      init=False, repr=False, hash=False, compare=True)
+  _target: jnp.DeviceArray = dataclasses.field(
+      init=False, repr=False, hash=False, compare=True)
+  _train_media_size: int = dataclasses.field(
+      init=False, repr=False, hash=True, compare=False)
+  _mcmc: numpyro.infer.MCMC = dataclasses.field(
+      init=False, repr=False, hash=False, compare=False)
 
   def __post_init__(self):
     if self.model_name not in _NAMES_TO_MODEL_TRANSFORMS:
@@ -104,6 +160,43 @@ class LightweightMMM:
     self._model_transform_function = _NAMES_TO_MODEL_TRANSFORMS[self.model_name]
     self._prior_names = models.MODEL_PRIORS_NAMES.union(
         models.TRANSFORM_PRIORS_NAMES[self.model_name])
+
+  def __eq__(self, other: Any) -> bool:
+    """Equality method for LightweightMMMM.
+
+    We need a special method here to handle a couple of issues. First, some of
+    the attributes for LightweightMMM are arrays, which contain multiple values
+    and cannot be evaluated with the default __eq__ method. Second, some
+    attributes are initially undefined and only get values after fitting a
+    model. The latter is dealt with within this function, and the former within
+    the helper function _compare_equality_for_lmmm().
+
+    Args:
+      other: Dataclass to compare against.
+
+    Returns:
+      Boolean for whether self == other; NotImplemented if other is not a
+      LightweightMMM.
+    """
+    if not isinstance(other, LightweightMMM):
+      return NotImplemented
+
+    def _create_list_of_attributes_to_compare(
+        mmm_instance: Any) -> Sequence[str]:
+      all_attributes_that_can_be_compared = sorted(
+          [x.name for x in dataclasses.fields(mmm_instance) if x.compare])
+      attributes_which_have_been_instantiated = [
+          x for x in all_attributes_that_can_be_compared
+          if hasattr(mmm_instance, x)
+      ]
+      return attributes_which_have_been_instantiated
+
+    self_attributes = _create_list_of_attributes_to_compare(self)
+    other_attributes = _create_list_of_attributes_to_compare(other)
+
+    return all(
+        _compare_equality_for_lmmm(getattr(self, a1), getattr(other, a2))
+        for a1, a2 in itertools.zip_longest(self_attributes, other_attributes))
 
   def _preprocess_custom_priors(
       self,
