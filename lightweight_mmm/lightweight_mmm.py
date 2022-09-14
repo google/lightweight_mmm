@@ -135,7 +135,7 @@ class LightweightMMM:
       init=False, repr=False, hash=False, compare=True)
   media_names: Sequence[str] = dataclasses.field(
       init=False, repr=False, hash=False, compare=True)
-  trace: dict[str, jnp.DeviceArray] = dataclasses.field(
+  trace: Dict[str, jnp.DeviceArray] = dataclasses.field(
       init=False, repr=False, hash=False, compare=False)
   custom_priors: MutableMapping[str, Prior] = dataclasses.field(
       init=False, repr=False, hash=False, compare=True)
