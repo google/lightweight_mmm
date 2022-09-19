@@ -45,6 +45,7 @@ from absl import logging
 import immutabledict
 import jax
 import jax.numpy as jnp
+import numpy as np
 import numpyro
 from numpyro import distributions as dist
 from numpyro import infer
@@ -71,10 +72,12 @@ _MODEL_FUNCTION = models.media_mix_model
 def _compare_equality_for_lmmm(item_1: Any, item_2: Any) -> bool:
   """Compares two items for equality.
 
-  Helper function for the __eq__ method of LightweightmMM. Uses jnp.array_equal
-  if the items are jax.numpy.DeviceArray, and uses items' __eq__ otherwise.
+  Helper function for the __eq__ method of LightweightmMM. First checks if items
+  are strings or lists of strings (it's okay if empty lists compare True), then
+  uses jnp.array_equal if the items are jax.numpy.DeviceArray or other related
+  sequences, and uses items' __eq__ otherwise.
 
-  Note: this implementation does not covery every possible data structure, but
+  Note: this implementation does not cover every possible data structure, but
   it does cover all the data structures seen in attributes used by
   LightweightMMM. Sometimes the DeviceArray is hidden in the value of a
   MutableMapping, hence the recursion.
@@ -86,11 +89,20 @@ def _compare_equality_for_lmmm(item_1: Any, item_2: Any) -> bool:
   Returns:
     Boolean for whether item_1 equals item_2.
   """
-  if isinstance(item_1, jnp.DeviceArray) and isinstance(item_2,
-                                                        jnp.DeviceArray):
-    is_equal = jnp.array_equal(item_1, item_2)
-  elif isinstance(item_1, MutableMapping) and isinstance(
-      item_2, MutableMapping):
+
+  # This is pretty strict but LMMM classes don't need to compare equal unless
+  # they are exact copies.
+  if type(item_1) != type(item_2):
+    is_equal = False
+  elif isinstance(item_1, str):
+    is_equal = item_1 == item_2
+  elif isinstance(item_1, (jnp.DeviceArray, np.ndarray, Sequence)):
+    if all(isinstance(x, str) for x in item_1) and all(
+        isinstance(x, str) for x in item_2):
+      is_equal = item_1 == item_2
+    else:
+      is_equal = jnp.array_equal(item_1, item_2, equal_nan=True)
+  elif isinstance(item_1, MutableMapping):
     is_equal = all([
         _compare_equality_for_lmmm(item_1[x], item_2[x])
         for x in item_1.keys() | item_2.keys()

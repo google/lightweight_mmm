@@ -19,6 +19,7 @@ from unittest import mock
 from absl.testing import absltest
 from absl.testing import parameterized
 import jax.numpy as jnp
+import matplotlib
 import numpy as np
 
 from lightweight_mmm import lightweight_mmm
@@ -384,6 +385,17 @@ class PlotTest(parameterized.TestCase):
         media_mix_model=mmm, target_scaler=target_scaler)
     self.assertEqual(self.mock_pd_area_plot.call_count, expected_calls)
 
-
+  def test_plot_response_curves_works_twice_with_non_jnp_data(self):
+    mmm_object = lightweight_mmm.LightweightMMM()
+    mmm_object.fit(
+        media=np.ones((50, 5)),
+        target=np.ones(50),
+        media_prior=np.ones(5) * 50,
+        number_warmup=2,
+        number_samples=2,
+        number_chains=1)
+    _ = plot.plot_response_curves(media_mix_model=mmm_object)
+    fig = plot.plot_response_curves(media_mix_model=mmm_object)
+    self.assertIsInstance(fig, matplotlib.figure.Figure)
 if __name__ == "__main__":
   absltest.main()
