@@ -96,7 +96,7 @@ def _compare_equality_for_lmmm(item_1: Any, item_2: Any) -> bool:
     is_equal = False
   elif isinstance(item_1, str):
     is_equal = item_1 == item_2
-  elif isinstance(item_1, (jnp.DeviceArray, np.ndarray, Sequence)):
+  elif isinstance(item_1, (jax.Array, np.ndarray, Sequence)):
     if all(isinstance(x, str) for x in item_1) and all(
         isinstance(x, str) for x in item_2):
       is_equal = item_1 == item_2
@@ -634,7 +634,7 @@ class LightweightMMM:
     sum_unscaled_prediction = jnp.sum(unscaled_posterior_pred, axis=1)
 
     if self.media.ndim == 2:
-    # add a new axis to represent channel:(sample,) -> (sample,channel)
+      # add a new axis to represent channel:(sample,) -> (sample,channel)
       sum_scaled_prediction = sum_scaled_prediction[:, jnp.newaxis]
       sum_unscaled_prediction = sum_unscaled_prediction[:, jnp.newaxis]
 
@@ -664,7 +664,3 @@ class LightweightMMM:
     roi_hat = sum_unscaled_prediction * media_contribution_hat / unscaled_costs
 
     return media_contribution_hat, roi_hat
-
-
-
-

@@ -17,6 +17,7 @@ from unittest import mock
 
 from absl.testing import absltest
 from absl.testing import parameterized
+import jax
 import jax.numpy as jnp
 import numpy as np
 
@@ -80,7 +81,7 @@ class OptimizeMediaTest(parameterized.TestCase):
         geo_ratio=geo_ratio,
         seed=10)
 
-    self.assertIsInstance(kpi_predicted, jnp.DeviceArray)
+    self.assertIsInstance(kpi_predicted, jax.Array)
     self.assertLessEqual(kpi_predicted, 0)
     self.assertEqual(kpi_predicted.shape, ())
 
@@ -288,8 +289,8 @@ class OptimizeMediaTest(parameterized.TestCase):
         target_scaler=None,
         media_scaler=media_scaler)
     self.assertLen(results, expected_len)
-    self.assertIsInstance(results[1], jnp.DeviceArray)
-    self.assertIsInstance(results[2], jnp.DeviceArray)
+    self.assertIsInstance(results[1], jax.Array)
+    self.assertIsInstance(results[2], jax.Array)
 
 
 if __name__ == "__main__":
