@@ -20,7 +20,9 @@ from absl.testing import absltest
 from absl.testing import parameterized
 import jax.numpy as jnp
 import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
+import numpyro.distributions as dist
 
 from lightweight_mmm import lightweight_mmm
 from lightweight_mmm import plot
@@ -62,6 +64,8 @@ class PlotTest(parameterized.TestCase):
         mock.patch.object(plot.plt.Axes, "bar", autospec=True))
     self.mock_pd_area_plot = self.enter_context(
         mock.patch.object(plot.pd.DataFrame.plot, "area", autospec=True))
+    self.mock_sns_kdeplot = self.enter_context(
+        mock.patch.object(plot.sns, "kdeplot", autospec=True))
 
   @parameterized.named_parameters([
       dict(
@@ -397,5 +401,139 @@ class PlotTest(parameterized.TestCase):
     _ = plot.plot_response_curves(media_mix_model=mmm_object)
     fig = plot.plot_response_curves(media_mix_model=mmm_object)
     self.assertIsInstance(fig, matplotlib.figure.Figure)
+
+  @parameterized.named_parameters([
+      dict(testcase_name="trace_missing", missing_attribute="trace"),
+      dict(
+          testcase_name="weekday_seasonality_missing",
+          missing_attribute="_weekday_seasonality"),
+      dict(
+          testcase_name="custom_priors_missing",
+          missing_attribute="custom_priors"),
+      dict(testcase_name="n_geos_missing", missing_attribute="n_geos"),
+      dict(
+          testcase_name="n_media_channels_missing",
+          missing_attribute="n_media_channels"),
+      dict(
+          testcase_name="media_prior_missing",
+          missing_attribute="_media_prior"),
+  ])
+  def test_prior_posterior_plot_raises_notfittedmodelerror(
+      self, missing_attribute):
+    mmm = getattr(self, "not_fitted_mmm")
+    mmm.trace = jnp.ones((50, 5))
+    mmm._weekday_seasonality = True
+    mmm.custom_priors = None
+    mmm.n_geos = 1
+    mmm.n_media_channels = 3
+    mmm._media_prior = jnp.ones(5) * 50
+
+    with self.assertRaises(lightweight_mmm.NotFittedModelError):
+      delattr(mmm, missing_attribute)
+      plot.plot_prior_and_posterior(
+          media_mix_model=mmm, number_of_samples_for_prior=100)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="half_normal_prior",
+          prior_distribution=dist.HalfNormal(3),
+          expected_clipping_bounds=[0, None]),
+      dict(
+          testcase_name="normal_prior",
+          prior_distribution=dist.Normal(0, 1),
+          expected_clipping_bounds=None),
+      dict(
+          testcase_name="beta_prior",
+          prior_distribution="beta distribution placeholder",
+          expected_clipping_bounds=[0, 1]),
+      dict(
+          testcase_name="gamma_prior",
+          prior_distribution=dist.Gamma(0.5),
+          expected_clipping_bounds=[0, None]),
+  ])
+  def test_prior_posterior_plot_clipping_bounds_for_kdeplots(
+      self, prior_distribution, expected_clipping_bounds):
+    fig = plt.figure()
+    gridspec_fig = matplotlib.gridspec.GridSpec(
+        nrows=1, ncols=1, figure=fig, hspace=10)
+
+    # dist.Beta() calls jnp.broadcast_to() upon instantiation, so this
+    # distribution can't be left in the decorator or it raises a
+    # RuntimeError: "Attempted call to JAX before absl.app.run() is called".
+    # Thus we have to instantiate it inside the unit test instead.
+    if prior_distribution == "beta distribution placeholder":
+      prior_distribution = dist.Beta(0.5, 0.5)
+
+    plot._make_prior_and_posterior_subplot_for_one_feature(
+        prior_distribution=prior_distribution,
+        posterior_samples=jnp.ones(50),
+        subplot_title="title",
+        fig=fig,
+        gridspec_fig=gridspec_fig,
+        i_ax=0, number_of_samples_for_prior=100)
+    call_details = self.mock_sns_kdeplot.call_args_list
+    called_clipping_bounds = call_details[0][1]["clip"]
+
+    self.assertEqual(called_clipping_bounds, expected_clipping_bounds)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="carryover_national_model",
+          model_name="carryover",
+          is_geo_model=False,
+          expected_number_of_subplots=29),
+      dict(
+          testcase_name="carryover_geo_model",
+          model_name="carryover",
+          is_geo_model=True,
+          expected_number_of_subplots=45),
+      dict(
+          testcase_name="adstock_national_model",
+          model_name="adstock",
+          is_geo_model=False,
+          expected_number_of_subplots=24),
+      dict(
+          testcase_name="adstock_geo_model",
+          model_name="adstock",
+          is_geo_model=True,
+          expected_number_of_subplots=40),
+      dict(
+          testcase_name="hill_adstock_national_model",
+          model_name="hill_adstock",
+          is_geo_model=False,
+          expected_number_of_subplots=29),
+      dict(
+          testcase_name="hill_adstock_geo_model",
+          model_name="hill_adstock",
+          is_geo_model=True,
+          expected_number_of_subplots=45),
+  ])
+  def test_prior_posterior_plot_makes_correct_number_of_subplots(
+      self, model_name, is_geo_model, expected_number_of_subplots):
+
+    mmm = lightweight_mmm.LightweightMMM(model_name=model_name)
+    if is_geo_model:
+      media = jnp.ones((50, 5, 3))
+      target = jnp.ones((50, 3))
+      extra_features = jnp.ones((50, 1, 3))
+    else:
+      media = jnp.ones((50, 5))
+      target = jnp.ones(50)
+      extra_features = jnp.ones((50, 1))
+    mmm.fit(
+        media=media,
+        target=target,
+        media_prior=jnp.ones(5) * 50,
+        extra_features=extra_features,
+        number_warmup=2,
+        number_samples=2,
+        number_chains=1)
+
+    fig = plot.plot_prior_and_posterior(
+        media_mix_model=mmm, number_of_samples_for_prior=100, seed=0)
+
+    self.assertLen(fig.get_axes(), expected_number_of_subplots)
+
+
 if __name__ == "__main__":
   absltest.main()

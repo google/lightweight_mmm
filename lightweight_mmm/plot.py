@@ -23,12 +23,15 @@ import jax.numpy as jnp
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+import numpyro
 import pandas as pd
 import seaborn as sns
 from sklearn import metrics
 
 from lightweight_mmm import lightweight_mmm
+from lightweight_mmm import models
 from lightweight_mmm import preprocessing
+from lightweight_mmm import utils
 
 plt.style.use("default")
 
@@ -943,4 +946,328 @@ def plot_media_baseline_contribution_area_plot(
   for tick in ax.get_xticklabels():
     tick.set_rotation(45)
   plt.close()
+  return fig
+
+
+def _make_prior_and_posterior_subplot_for_one_feature(
+    prior_distribution: numpyro.distributions.Distribution,
+    posterior_samples: np.ndarray,
+    subplot_title: str,
+    fig: matplotlib.figure.Figure,
+    gridspec_fig: matplotlib.gridspec.GridSpec,
+    i_ax: int,
+    hyperprior: bool = False,
+    number_of_samples_for_prior: int = 5000,
+    kde_bandwidth_adjust_for_posterior: float = 1,
+    seed: Optional[int] = None,
+) -> Tuple[matplotlib.figure.Figure, matplotlib.gridspec.GridSpec, int]:
+  """Helper function to make the prior and posterior distribution subplots.
+
+  This function makes some (hard-coded) choices about how to display the prior
+  and posterior distributions. First, it uses kernel density estimators to
+  smooth the distributions rather than plotting the histograms directly (since
+  the histograms look too noisy unless we take unreasonably large numbers of
+  samples). Second, we found that the default bandwidth works pretty well for
+  visualization of these distributions, though we expose the bw_adjust parameter
+  if users wish to modify this. Finally, kernel density estimators tend to have
+  issues at the edges of distributions, and this issue persists here too. We
+  clip some distributions (Half-Normal, Beta, Gamma) to keep the KDE plot
+  representations inside the domains where these distributions are defined, and
+  we also set cut=0 for the posterior distributions to give better insight into
+  their exact ranges. We don't do this for the prior distributions, since in
+  general they have wider (or infinite) ranges and the bounds that we show would
+  be mostly determined by number_of_samples_for_prior, which should just be an
+  implementation detail.
+
+  Args:
+    prior_distribution: Numpyro distribution specifying the prior from which we
+      will sample to generate the plot.
+    posterior_samples: Array of samples from the posterior distribution,
+      obtained from the trace of the media_mix_model. Might need to be flattened
+      in some cases.
+    subplot_title: Title to display for this particular subplot
+    fig: The matplotlib Figure object for the overall plot.
+    gridspec_fig: The matplotlib GridSpec object for the overall plot.
+    i_ax: Index of the subplot within the gridspec_fig.
+    hyperprior: Flag which indicates that the prior_distribution is actually a
+      hyperprior distribution. LMMM is hierarchical on the channel coefficients
+      when run at the geo-level, so this should currently only be set to True
+      when working with the media channel coefficients.
+    number_of_samples_for_prior: Controls the level of smoothing for the plotted
+      version of the prior distribution. The default should be fine unless you
+      want to decrease it to speed up runtime.
+    kde_bandwidth_adjust_for_posterior: Multiplicative factor to adjust the
+      bandwidth of the kernel density estimator, to control the level of
+      smoothing for the posterior distribution. Passed to seaborn.kdeplot as the
+      bw_adjust parameter there.
+    seed: Seed to use for PRNGKey during sampling. For replicability run
+        this function and any other function that utilises predictions with the
+        same seed.
+
+  Returns:
+    fig: The matplotlib Figure object for the overall plot.
+    gridspec_fig: The matplotlib GridSpec object for the overall plot.
+    i_ax: Index of the subplot within the gridspec_fig, iterated by one.
+  """
+
+  if seed is None:
+    seed = utils.get_time_seed()
+  prior_samples = prior_distribution.sample(
+      key=jax.random.PRNGKey(seed=seed),
+      sample_shape=(number_of_samples_for_prior,))
+
+  # Truncate the KDE plot representation of Half-Normal, Beta, and Gamma
+  # distributions, since users might be confused to see a Half-Normal or Gamma
+  # going negative, or a Beta distribution outside of [0, 1].
+  if isinstance(
+      prior_distribution,
+      (numpyro.distributions.HalfNormal, numpyro.distributions.Gamma)):
+    clipping_bounds = [0, None]
+  elif isinstance(prior_distribution, numpyro.distributions.Beta):
+    clipping_bounds = [0, 1]
+  else:
+    clipping_bounds = None
+
+  if hyperprior:
+    square_root_of_number_of_samples_for_prior = int(
+        np.sqrt(number_of_samples_for_prior))
+    prior_distribution = numpyro.distributions.continuous.HalfNormal(
+        scale=prior_samples[:square_root_of_number_of_samples_for_prior])
+    prior_samples = prior_distribution.sample(
+        key=jax.random.PRNGKey(seed=seed),
+        sample_shape=(square_root_of_number_of_samples_for_prior,)).flatten()
+
+  ax = fig.add_subplot(gridspec_fig[i_ax, 0])
+  sns.kdeplot(
+      data=prior_samples,
+      lw=4,
+      clip=clipping_bounds,
+      color="tab:blue", ax=ax, label="prior")
+  prior_xlims = ax.get_xlim()
+
+  sns.kdeplot(
+      data=posterior_samples.flatten(),
+      lw=4,
+      clip=clipping_bounds,
+      cut=0,
+      bw_adjust=kde_bandwidth_adjust_for_posterior,
+      color="tab:orange", ax=ax, label="posterior")
+  posterior_xlims = ax.get_xlim()
+
+  ax.legend(loc="best")
+  ax.set_xlim(
+      min(prior_xlims[0], posterior_xlims[0]),
+      max(prior_xlims[1], posterior_xlims[1]))
+  ax.set_yticks([])
+  ax.set_ylabel("")
+  ax.set_title(subplot_title, y=0.85, va="top", fontsize=10)
+
+  i_ax += 1
+
+  return fig, gridspec_fig, i_ax
+
+
+def _collect_features_for_prior_posterior_plot(
+    media_mix_model: lightweight_mmm.LightweightMMM
+) -> Tuple[List[str], List[str], List[str], List[str], List[str]]:
+  """Helper function to collect features to include in the prior/posterior plot.
+
+  Args:
+    media_mix_model: Fitted media mix model.
+
+  Returns:
+    features: List of all features for the given model type, for which we have
+    defined prior distributions.
+    geo_level_features: List of all geo-level features for the given model type.
+    channel_level_features: List of all channel-level features for the given
+    model type.
+    seasonal_features: List of all seasonal features for the given model type.
+    other_features: List of all other features for the given media_mix_model.
+  """
+
+  media_mix_model_attributes_to_check_for = [
+      "trace",
+      "_weekday_seasonality",
+      "custom_priors",
+      "n_geos",
+      "n_media_channels",
+      "_media_prior",
+  ]
+  if not all([
+      hasattr(media_mix_model, x)
+      for x in media_mix_model_attributes_to_check_for
+  ]):
+    raise lightweight_mmm.NotFittedModelError(
+        "Model needs to be fit first in order to plot the posterior.")
+
+  features = media_mix_model._prior_names
+  if not media_mix_model._weekday_seasonality:
+    features = features.difference(["weekday"])
+  if media_mix_model.media.ndim == 2:
+    features = features.difference(models.GEO_ONLY_PRIORS)
+    features = features.union(["coef_media"])
+  else:
+    features = features.union(["coef_media", "channel_coef_media"])
+
+  geo_level_features = [
+      models._COEF_EXTRA_FEATURES,
+      models._COEF_SEASONALITY,
+      models._COEF_TREND,
+      models._INTERCEPT,
+      models._SIGMA,
+  ]
+  channel_level_features = [
+      models._AD_EFFECT_RETENTION_RATE,
+      models._EXPONENT,
+      models._HALF_MAX_EFFECTIVE_CONCENTRATION,
+      models._LAG_WEIGHT,
+      models._PEAK_EFFECT_DELAY,
+      models._SLOPE,
+      "channel_coef_media",
+      "coef_media",
+  ]
+  seasonal_features = [models._GAMMA_SEASONALITY]
+  if media_mix_model._weekday_seasonality:
+    seasonal_features.append(models._WEEKDAY)
+  other_features = list(features - set(geo_level_features) -
+                        set(channel_level_features) - set(seasonal_features))
+
+  return (features, geo_level_features, channel_level_features,
+          seasonal_features, other_features)
+
+
+def plot_prior_and_posterior(
+    media_mix_model: lightweight_mmm.LightweightMMM,
+    fig_size: Optional[Tuple[int, int]] = None,
+    number_of_samples_for_prior: int = 5000,
+    kde_bandwidth_adjust_for_posterior: float = 1,
+    seed: Optional[int] = None,
+) -> matplotlib.figure.Figure:
+  """Plots prior and posterior distributions for parameters in media_mix_model.
+
+  Args:
+    media_mix_model: Fitted media mix model.
+    fig_size: Size of the figure to plot as used by matplotlib. Default is a
+      width of 20 and a height of 1.5 for each subplot.
+    number_of_samples_for_prior: Controls the level of smoothing for the plotted
+      version of the prior distribution. The default should be fine unless you
+      want to decrease it to speed up runtime.
+    kde_bandwidth_adjust_for_posterior: Multiplicative factor to adjust the
+      bandwidth of the kernel density estimator, to control the level of
+      smoothing for the posterior distribution. Passed to seaborn.kdeplot as the
+      bw_adjust parameter there.
+    seed: Seed to use for PRNGKey during sampling. For replicability run
+        this function and any other function that utilises predictions with the
+        same seed.
+
+  Returns:
+    Plot with Kernel density estimate smoothing showing prior and posterior
+    distributions for every parameter in the given media_mix_model.
+
+  Raises:
+    NotFittedModelError: media_mix_model has not yet been fit.
+    ValueError: A feature has been created without a well-defined prior.
+  """
+
+  (features, geo_level_features, channel_level_features, seasonal_features,
+   other_features) = _collect_features_for_prior_posterior_plot(media_mix_model)
+
+  number_of_subplots = int(
+      sum([
+          np.product(media_mix_model.trace[x].shape[1:]) for x in features
+      ]))
+
+  if not fig_size:
+    fig_size = (20, 1.5 * number_of_subplots)
+
+  fig = plt.figure(figsize=fig_size, constrained_layout=True)
+  gridspec_fig = matplotlib.gridspec.GridSpec(
+      nrows=number_of_subplots, ncols=1, figure=fig, hspace=10)
+
+  default_priors = {
+      **models._get_default_priors(),
+      **models._get_transform_default_priors()[media_mix_model.model_name]
+  }
+
+  kwargs_for_helper_function = {
+      "fig": fig,
+      "gridspec_fig": gridspec_fig,
+      "number_of_samples_for_prior": number_of_samples_for_prior,
+      "kde_bandwidth_adjust_for_posterior": kde_bandwidth_adjust_for_posterior,
+      "seed": seed,
+  }
+
+  i_ax = 0
+  for feature in (geo_level_features + channel_level_features +
+                  seasonal_features + other_features):
+    if feature not in features:
+      continue
+
+    if feature in media_mix_model.custom_priors:
+      prior_distribution = media_mix_model.custom_priors[feature]
+      if not isinstance(prior_distribution, numpyro.distributions.Distribution):
+        raise ValueError(f"{feature} cannot be plotted.")
+    elif feature in default_priors.keys():
+      prior_distribution = default_priors[feature]
+    elif feature in ("channel_coef_media", "coef_media"):
+      # We have to fill this in later since the prior varies by channel.
+      prior_distribution = None
+    else:
+      # This should never happen.
+      raise ValueError(f"{feature} has no prior specified.")
+    kwargs_for_helper_function["prior_distribution"] = prior_distribution
+
+    if feature in geo_level_features:
+      for i_geo in range(media_mix_model.n_geos):
+        subplot_title = f"{feature}, geo {i_geo}"
+        posterior_samples = np.array(media_mix_model.trace[feature][:, i_geo])
+        (fig, gridspec_fig,
+         i_ax) = _make_prior_and_posterior_subplot_for_one_feature(
+             posterior_samples=posterior_samples,
+             subplot_title=subplot_title,
+             i_ax=i_ax,
+             **kwargs_for_helper_function)
+
+    if feature in channel_level_features:
+      for i_channel in range(media_mix_model.n_media_channels):
+        subplot_title = f"{feature}, channel {i_channel}"
+        if feature in ("channel_coef_media", "coef_media"):
+          prior_distribution = numpyro.distributions.continuous.HalfNormal(
+              scale=jnp.squeeze(media_mix_model._media_prior[i_channel]))
+        posterior_samples = np.array(
+            jnp.squeeze(media_mix_model.trace[feature][:, i_channel]))
+        kwargs_for_helper_function["prior_distribution"] = prior_distribution
+        hyperprior = feature == "channel_coef_media"
+        (fig, gridspec_fig,
+         i_ax) = _make_prior_and_posterior_subplot_for_one_feature(
+             posterior_samples=posterior_samples,
+             subplot_title=subplot_title,
+             i_ax=i_ax,
+             hyperprior=hyperprior,
+             **kwargs_for_helper_function)
+
+    if feature in seasonal_features:
+      for i_season in range(media_mix_model._degrees_seasonality):
+        for j_season in range(media_mix_model._degrees_seasonality):
+          subplot_title = f"{feature}, seasonal mode {i_season}:{j_season}"
+          posterior_samples = np.array(media_mix_model.trace[feature][:,
+                                                                      i_season,
+                                                                      j_season])
+          (fig, gridspec_fig,
+           i_ax) = _make_prior_and_posterior_subplot_for_one_feature(
+               posterior_samples=posterior_samples,
+               subplot_title=subplot_title,
+               i_ax=i_ax,
+               **kwargs_for_helper_function)
+
+    if feature in other_features:
+      subplot_title = f"{feature} - extra feature"
+      posterior_samples = np.array(media_mix_model.trace[feature])
+      (fig, gridspec_fig,
+       i_ax) = _make_prior_and_posterior_subplot_for_one_feature(
+           posterior_samples=posterior_samples,
+           subplot_title=subplot_title,
+           i_ax=i_ax,
+           **kwargs_for_helper_function)
+
   return fig
