@@ -318,11 +318,20 @@ To load a saved MMM model:
 utils.load_model(file_path: 'file_path')
 ```
 
-### Prior distribution churning (optional)
-While Lightweight MMM does not have features to apply a posterior distribution to
-a new model training at this moment, users can adjust parameters of the prior
-distributions in `model.py` and `media_transforms.py` when necessary. However,
-this is not a straight forward way and we recommend you to keep this.
+## Citing LightweightMMM
+
+To cite this repository:
+
+```
+@software{lightweight_mmmgithub,
+  author = {Pablo Duque and Dirk Nachbar and Yuka Abe and Christiane Ahlheim and Mike Anderson and Yan Sun and Omri Goldstein and Tim Eck},
+  title = {LightweightMMM: Lightweight (Bayesian) Marketing Mix Modeling},
+  url = {https://github.com/google/lightweight_mmm},
+  version = {0.1.6},
+  year = {2022},
+}
+```
+
 
 ## References
 
@@ -336,4 +345,4 @@ this is not a straight forward way and we recommend you to keep this.
 
 - [How To Create A Marketing Mix Model With LightweightMMM](https://forecastegy.com/posts/how-to-create-a-marketing-mix-model-with-lightweightmmm/) by Mario Filho.
 
-- [How Google LightweightMMM Works](https://getrecast.com/google-lightweightmmm/) by Mike Taylor.
+- [How Google LightweightMMM Works](https://getrecast.com/google-lightweightmmm/) and [A walkthrough of Google’s LightweightMMM](https://www.youtube.com/watch?v=oRYN0V6sPlM) by Mike Taylor.
