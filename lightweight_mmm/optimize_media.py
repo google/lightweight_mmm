@@ -127,9 +127,11 @@ def _get_lower_and_upper_bounds(
   if media.ndim == 3:
     lower_pct = jnp.expand_dims(lower_pct, axis=-1)
     upper_pct = jnp.expand_dims(upper_pct, axis=-1)
+
   mean_data = media.mean(axis=0)
   lower_bounds = jnp.maximum(mean_data * (1 - lower_pct), 0)
   upper_bounds = mean_data * (1 + upper_pct)
+
   if media_scaler:
     lower_bounds = media_scaler.inverse_transform(lower_bounds)
     upper_bounds = media_scaler.inverse_transform(upper_bounds)
@@ -142,9 +144,12 @@ def _get_lower_and_upper_bounds(
                          ub=upper_bounds * n_time_periods)
 
 
-def _generate_starting_values(n_time_periods: int, media: jnp.ndarray,
-                              media_scaler: preprocessing.CustomScaler,
-                              budget: Union[float, int]) -> jnp.ndarray:
+def _generate_starting_values(
+    n_time_periods: int, media: jnp.ndarray,
+    media_scaler: preprocessing.CustomScaler,
+    budget: Union[float, int],
+    prices: jnp.ndarray,
+) -> jnp.ndarray:
   """Generates starting values based on historic allocation and budget.
 
   In order to make a comparison we can take the allocation of the last
@@ -157,6 +162,8 @@ def _generate_starting_values(n_time_periods: int, media: jnp.ndarray,
     media: Historic media data the model was trained with.
     media_scaler: Scaler that was used to scale the media data before training.
     budget: Total budget to allocate during the optimization time.
+    prices: An array with shape (n_media_channels,) for the cost of each media
+      channel unit.
 
   Returns:
     An array with the starting value for each media channel for the
@@ -169,8 +176,11 @@ def _generate_starting_values(n_time_periods: int, media: jnp.ndarray,
   if media.ndim == 3:
     previous_allocation = previous_allocation.sum(axis=-1)
 
-  multiplier = budget / previous_allocation.sum()
-  return previous_allocation * multiplier
+  avg_spend_per_channel = previous_allocation * prices
+  pct_spend_per_channel = avg_spend_per_channel / avg_spend_per_channel.sum()
+  budget_per_channel = budget * pct_spend_per_channel
+  media_unit_per_channel = budget_per_channel / prices
+  return media_unit_per_channel
 
 
 def find_optimal_budgets(
@@ -185,6 +195,8 @@ def find_optimal_budgets(
     bounds_lower_pct: Union[float, jnp.ndarray] = .2,
     bounds_upper_pct: Union[float, jnp.ndarray] = .2,
     max_iterations: int = 200,
+    solver_func_tolerance: float = 1e-06,
+    solver_step_size: float = 1.4901161193847656e-08,
     seed: Optional[int] = None) -> optimize.OptimizeResult:
   """Finds the best media allocation based on MMM model, prices and a budget.
 
@@ -210,6 +222,14 @@ def find_optimal_budgets(
       consider as new upper bound.
     max_iterations: Number of max iterations to use for the SLSQP scipy
       optimizer. Default is 200.
+    solver_func_tolerance: Precision goal for the value of the prediction in
+      the stopping criterion. Maps directly to scipy's `ftol`. Intended only
+      for advanced users. For more details see:
+      https://docs.scipy.org/doc/scipy/reference/optimize.minimize-slsqp.html#optimize-minimize-slsqp.
+    solver_step_size: Step size used for numerical approximation of the
+      Jacobian. Maps directly to scipy's `eps`. Intended only for advanced
+      users. For more details see:
+      https://docs.scipy.org/doc/scipy/reference/optimize.minimize-slsqp.html#optimize-minimize-slsqp.
     seed: Seed to use for PRNGKey during sampling. For replicability run
       this function and any other function that gets predictions with the same
       seed.
@@ -255,7 +275,9 @@ def find_optimal_budgets(
       n_time_periods=n_time_periods,
       media=media_mix_model.media,
       media_scaler=media_scaler,
-      budget=budget)
+      budget=budget,
+      prices=prices,
+  )
   if not media_scaler:
     media_scaler = preprocessing.CustomScaler(multiply_by=1, divide_by=1)
   if media_mix_model.n_geos == 1:
@@ -274,9 +296,12 @@ def find_optimal_budgets(
       x0=starting_values,
       bounds=bounds,
       method="SLSQP",
+      jac="3-point",
       options={
           "maxiter": max_iterations,
-          "disp": True
+          "disp": True,
+          "ftol": solver_func_tolerance,
+          "eps": solver_step_size,
       },
       constraints={
           "type": "eq",

@@ -292,6 +292,44 @@ class OptimizeMediaTest(parameterized.TestCase):
     self.assertIsInstance(results[1], jax.Array)
     self.assertIsInstance(results[2], jax.Array)
 
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="national_prices",
+          model_name="national_mmm",
+          prices=np.array([1., 0.8, 1.2, 1.5, 0.5]),
+      ),
+      dict(
+          testcase_name="national_ones",
+          model_name="national_mmm",
+          prices=np.ones(5),
+      ),
+      dict(
+          testcase_name="geo_prices",
+          model_name="geo_mmm",
+          prices=np.array([1., 0.8, 1.2, 1.5, 0.5]),
+      ),
+      dict(
+          testcase_name="geo_ones",
+          model_name="geo_mmm",
+          prices=np.ones(5),
+      ),
+  ])
+  def test_generate_starting_values_calculates_correct_values(
+      self, model_name, prices):
+    mmm = getattr(self, model_name)
+    n_time_periods = 10
+    budget = mmm.n_media_channels * n_time_periods
+    starting_values = optimize_media._generate_starting_values(
+        n_time_periods=10,
+        media_scaler=None,
+        media=mmm.media,
+        budget=budget,
+        prices=prices,
+    )
+
+    # Given that data is all ones, starting values will be equal to prices.
+    np.testing.assert_array_almost_equal(
+        starting_values, jnp.repeat(n_time_periods, repeats=5))
 
 if __name__ == "__main__":
   absltest.main()
