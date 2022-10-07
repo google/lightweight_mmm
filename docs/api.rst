@@ -41,6 +41,7 @@ Plot
     plot_model_fit
     plot_out_of_sample_model_fit
     plot_media_channel_posteriors
+    plot_prior_and_posterior
     plot_bars_media_metrics
     plot_pre_post_budget_allocation_comparison
     plot_media_baseline_contribution_area_plot
@@ -52,6 +53,7 @@ Plot
 .. autofunction:: plot_model_fit
 .. autofunction:: plot_out_of_sample_model_fit
 .. autofunction:: plot_media_channel_posteriors
+.. autofunction:: plot_prior_and_posterior
 .. autofunction:: plot_bars_media_metrics
 .. autofunction:: plot_pre_post_budget_allocation_comparison
 .. autofunction:: plot_media_baseline_contribution_area_plot
