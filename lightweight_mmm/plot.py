@@ -1148,7 +1148,7 @@ def plot_prior_and_posterior(
   Args:
     media_mix_model: Fitted media mix model.
     fig_size: Size of the figure to plot as used by matplotlib. Default is a
-      width of 20 and a height of 1.5 for each subplot.
+      width of 8 and a height of 1.5 for each subplot.
     number_of_samples_for_prior: Controls the level of smoothing for the plotted
       version of the prior distribution. The default should be fine unless you
       want to decrease it to speed up runtime.
@@ -1178,7 +1178,7 @@ def plot_prior_and_posterior(
       ]))
 
   if not fig_size:
-    fig_size = (20, 1.5 * number_of_subplots)
+    fig_size = (8, 1.5 * number_of_subplots)
 
   fig = plt.figure(figsize=fig_size, constrained_layout=True)
   gridspec_fig = matplotlib.gridspec.GridSpec(
