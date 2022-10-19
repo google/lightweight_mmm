@@ -66,6 +66,8 @@ class PlotTest(parameterized.TestCase):
         mock.patch.object(plot.pd.DataFrame.plot, "area", autospec=True))
     self.mock_sns_kdeplot = self.enter_context(
         mock.patch.object(plot.sns, "kdeplot", autospec=True))
+    self.mock_plt_ax_legend = self.enter_context(
+        mock.patch.object(plot.plt.Axes, "legend", autospec=True))
 
   @parameterized.named_parameters([
       dict(
@@ -386,8 +388,19 @@ class PlotTest(parameterized.TestCase):
     target_scaler = preprocessing.CustomScaler(divide_operation=jnp.mean)
     target_scaler.fit(jnp.ones(1))
     _ = plot.plot_media_baseline_contribution_area_plot(
-        media_mix_model=mmm, target_scaler=target_scaler)
+        media_mix_model=mmm, target_scaler=target_scaler, legend_outside=True)
     self.assertEqual(self.mock_pd_area_plot.call_count, expected_calls)
+
+  def test_legend_plot_media_baseline_contribution_area_plot(self):
+    mmm = getattr(self, "national_mmm")
+    target_scaler = preprocessing.CustomScaler(divide_operation=jnp.mean)
+    target_scaler.fit(jnp.ones(1))
+    _ = plot.plot_media_baseline_contribution_area_plot(
+        media_mix_model=mmm, target_scaler=target_scaler, legend_outside=True)
+    call_args, call_kwargs = self.mock_plt_ax_legend.call_args_list[0]
+    self.assertEqual(call_kwargs["loc"], "center left")
+    self.assertEqual(call_kwargs["bbox_to_anchor"], (1, 0.5))
+
 
   def test_plot_response_curves_works_twice_with_non_jnp_data(self):
     mmm_object = lightweight_mmm.LightweightMMM()
