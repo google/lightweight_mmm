@@ -1287,8 +1287,9 @@ def plot_prior_and_posterior(
 
     if feature in seasonal_features:
       for i_season in range(media_mix_model._degrees_seasonality):
-        for j_season in range(media_mix_model._degrees_seasonality):
-          subplot_title = f"{feature}, seasonal mode {i_season}:{j_season}"
+        for j_season in range(2):
+          sin_or_cos = "sin" if j_season == 0 else "cos"
+          subplot_title = f"{feature}, seasonal mode {i_season}:{sin_or_cos}"
           posterior_samples = np.array(media_mix_model.trace[feature][:,
                                                                       i_season,
                                                                       j_season])

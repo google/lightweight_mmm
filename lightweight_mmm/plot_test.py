@@ -494,32 +494,32 @@ class PlotTest(parameterized.TestCase):
           testcase_name="carryover_national_model",
           model_name="carryover",
           is_geo_model=False,
-          expected_number_of_subplots=29),
+          expected_number_of_subplots=31),
       dict(
           testcase_name="carryover_geo_model",
           model_name="carryover",
           is_geo_model=True,
-          expected_number_of_subplots=45),
+          expected_number_of_subplots=47),
       dict(
           testcase_name="adstock_national_model",
           model_name="adstock",
           is_geo_model=False,
-          expected_number_of_subplots=24),
+          expected_number_of_subplots=26),
       dict(
           testcase_name="adstock_geo_model",
           model_name="adstock",
           is_geo_model=True,
-          expected_number_of_subplots=40),
+          expected_number_of_subplots=42),
       dict(
           testcase_name="hill_adstock_national_model",
           model_name="hill_adstock",
           is_geo_model=False,
-          expected_number_of_subplots=29),
+          expected_number_of_subplots=31),
       dict(
           testcase_name="hill_adstock_geo_model",
           model_name="hill_adstock",
           is_geo_model=True,
-          expected_number_of_subplots=45),
+          expected_number_of_subplots=47),
   ])
   def test_prior_posterior_plot_makes_correct_number_of_subplots(
       self, model_name, is_geo_model, expected_number_of_subplots):
@@ -538,6 +538,7 @@ class PlotTest(parameterized.TestCase):
         target=target,
         media_prior=jnp.ones(5) * 50,
         extra_features=extra_features,
+        degrees_seasonality=3,
         number_warmup=2,
         number_samples=2,
         number_chains=1)
