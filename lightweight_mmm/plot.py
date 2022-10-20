@@ -15,6 +15,9 @@
 """Plotting functions pre and post model fitting."""
 
 import functools
+
+# Using these types from typing instead of their generic types in the type hints
+# in order to be compatible with Python 3.7 and 3.8.
 from typing import Any, List, Optional, Sequence, Tuple
 
 import arviz
@@ -1086,12 +1089,15 @@ def _make_prior_and_posterior_subplot_for_one_feature(
 
 
 def _collect_features_for_prior_posterior_plot(
-    media_mix_model: lightweight_mmm.LightweightMMM
+    media_mix_model: lightweight_mmm.LightweightMMM,
+    selected_features: Optional[List[str]] = None,
 ) -> Tuple[List[str], List[str], List[str], List[str], List[str]]:
   """Helper function to collect features to include in the prior/posterior plot.
 
   Args:
     media_mix_model: Fitted media mix model.
+    selected_features: Optional list of feature names to select. If not
+      specified (the default), all features are selected.
 
   Returns:
     features: List of all features for the given model type, for which we have
@@ -1101,6 +1107,10 @@ def _collect_features_for_prior_posterior_plot(
     model type.
     seasonal_features: List of all seasonal features for the given model type.
     other_features: List of all other features for the given media_mix_model.
+
+  Raises:
+    ValueError: if feature names are passed to selected_features which do not
+    appear in media_mix_model.
   """
 
   media_mix_model_attributes_to_check_for = [
@@ -1120,12 +1130,19 @@ def _collect_features_for_prior_posterior_plot(
 
   features = media_mix_model._prior_names
   if not media_mix_model._weekday_seasonality:
-    features = features.difference(["weekday"])
+    features = features.difference([models._WEEKDAY])
   if media_mix_model.media.ndim == 2:
     features = features.difference(models.GEO_ONLY_PRIORS)
     features = features.union(["coef_media"])
   else:
     features = features.union(["coef_media", "channel_coef_media"])
+
+  if selected_features:
+    extraneous_features = set(selected_features).difference(features)
+    if extraneous_features:
+      raise ValueError(
+          f"Selected_features {extraneous_features} not in media_mix_model.")
+    features = selected_features
 
   geo_level_features = [
       models._COEF_EXTRA_FEATURES,
@@ -1147,16 +1164,17 @@ def _collect_features_for_prior_posterior_plot(
   seasonal_features = [models._GAMMA_SEASONALITY]
   if media_mix_model._weekday_seasonality:
     seasonal_features.append(models._WEEKDAY)
-  other_features = list(features - set(geo_level_features) -
+  other_features = list(set(features) - set(geo_level_features) -
                         set(channel_level_features) - set(seasonal_features))
 
-  return (features, geo_level_features, channel_level_features,
+  return (list(features), geo_level_features, channel_level_features,
           seasonal_features, other_features)
 
 
 def plot_prior_and_posterior(
     media_mix_model: lightweight_mmm.LightweightMMM,
     fig_size: Optional[Tuple[int, int]] = None,
+    selected_features: Optional[List[str]] = None,
     number_of_samples_for_prior: int = 5000,
     kde_bandwidth_adjust_for_posterior: float = 1,
     seed: Optional[int] = None,
@@ -1167,6 +1185,8 @@ def plot_prior_and_posterior(
     media_mix_model: Fitted media mix model.
     fig_size: Size of the figure to plot as used by matplotlib. Default is a
       width of 8 and a height of 1.5 for each subplot.
+    selected_features: Optional list of feature names to select. If not
+      specified (the default), all features are selected.
     number_of_samples_for_prior: Controls the level of smoothing for the plotted
       version of the prior distribution. The default should be fine unless you
       want to decrease it to speed up runtime.
@@ -1188,7 +1208,8 @@ def plot_prior_and_posterior(
   """
 
   (features, geo_level_features, channel_level_features, seasonal_features,
-   other_features) = _collect_features_for_prior_posterior_plot(media_mix_model)
+   other_features) = _collect_features_for_prior_posterior_plot(
+       media_mix_model, selected_features)
 
   number_of_subplots = int(
       sum([

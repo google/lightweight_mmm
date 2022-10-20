@@ -547,6 +547,70 @@ class PlotTest(parameterized.TestCase):
 
     self.assertLen(fig.get_axes(), expected_number_of_subplots)
 
+  @parameterized.product(
+      (dict(is_geo_model=True, expected_number_of_subplots=11),
+       dict(is_geo_model=False, expected_number_of_subplots=7)),
+      (dict(model_name="adstock",
+            selected_features=["sigma", "intercept", "exponent"]),
+       dict(model_name="carryover",
+            selected_features=["sigma", "intercept", "exponent"]),
+       dict(model_name="hill_adstock",
+            selected_features=["sigma", "intercept", "slope"]))
+      )
+  def test_selected_features_for_prior_posterior_plot_makes_correct_number_of_subplots(
+      self, model_name, selected_features, is_geo_model,
+      expected_number_of_subplots):
+
+    mmm = lightweight_mmm.LightweightMMM(model_name=model_name)
+    if is_geo_model:
+      media = jnp.ones((50, 5, 3))
+      target = jnp.ones((50, 3))
+      extra_features = jnp.ones((50, 1, 3))
+    else:
+      media = jnp.ones((50, 5))
+      target = jnp.ones(50)
+      extra_features = jnp.ones((50, 1))
+    mmm.fit(
+        media=media,
+        target=target,
+        media_prior=jnp.ones(5) * 50,
+        extra_features=extra_features,
+        number_warmup=2,
+        number_samples=2,
+        number_chains=1)
+
+    fig = plot.plot_prior_and_posterior(
+        media_mix_model=mmm,
+        number_of_samples_for_prior=100,
+        seed=0,
+        selected_features=selected_features)
+
+    self.assertLen(fig.get_axes(), expected_number_of_subplots)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="national_model",
+          model_name="national_mmm"),
+      dict(
+          testcase_name="geo_model",
+          model_name="geo_mmm"),
+  ])
+  def test_selected_features_raises_value_error(self, model_name):
+    mmm = getattr(self, model_name)
+
+    # The expected error message here is an f-string whose value is filled in by
+    # a set that contains a single element. The message should look exactly as
+    # it appears below; no special regex parsing should be happening here.
+    expected_error = ("Selected_features {'misspelled_feature'}"
+                      " not in media_mix_model.")
+
+    with self.assertRaisesRegex(ValueError, expected_regex=expected_error):
+      plot.plot_prior_and_posterior(
+          media_mix_model=mmm,
+          number_of_samples_for_prior=100,
+          selected_features=[
+              "sigma", "intercept", "misspelled_feature"
+          ])
 
 if __name__ == "__main__":
   absltest.main()
