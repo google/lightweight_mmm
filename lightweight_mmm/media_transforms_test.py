@@ -183,5 +183,24 @@ class MediaTransformsTest(parameterized.TestCase):
     np.testing.assert_array_equal(x=generated_output, y=data)
 
 
+@parameterized.parameters(range(1, 5))
+def test_calculate_seasonality_produces_correct_standard_deviation(
+    self, degrees):
+  # It's not very obvious that this is the expected standard deviation, but it
+  # seems to be true mathematically and this makes a very convenient unit test.
+  expected_standard_deviation = jnp.sqrt(degrees)
+
+  seasonal_curve = media_transforms.calculate_seasonality(
+      number_periods=1,
+      degrees=degrees,
+      gamma_seasonality=1,
+      frequency=1200,
+  )
+  observed_standard_deviation = jnp.std(seasonal_curve)
+
+  self.assertAlmostEqual(
+      observed_standard_deviation, expected_standard_deviation, delta=0.01)
+
+
 if __name__ == "__main__":
   absltest.main()

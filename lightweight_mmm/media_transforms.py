@@ -39,7 +39,7 @@ def calculate_seasonality(
     degrees: Number of degrees to use. Must be greater or equal than 1.
     gamma_seasonality: Factor to multiply to each degree calculation. Shape must
       be aligned with the number of degrees.
-    frequency: Frecuency of the seasonality be in computed. By default is 52 for
+    frequency: Frequency of the seasonality being computed. By default is 52 for
       weekly data (52 weeks in a year).
 
   Returns:
@@ -47,7 +47,7 @@ def calculate_seasonality(
   """
 
   seasonality_range = jnp.expand_dims(a=jnp.arange(number_periods), axis=-1)
-  degrees_range = jnp.arange(degrees)
+  degrees_range = jnp.arange(1, degrees+1)
   inner_value = seasonality_range * 2 * jnp.pi * degrees_range / frequency
   season_matrix_sin = jnp.sin(inner_value)
   season_matrix_cos = jnp.cos(inner_value)
