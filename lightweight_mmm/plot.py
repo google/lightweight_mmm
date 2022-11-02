@@ -1131,6 +1131,10 @@ def _collect_features_for_prior_posterior_plot(
   features = media_mix_model._prior_names
   if not media_mix_model._weekday_seasonality:
     features = features.difference([models._WEEKDAY])
+
+  if media_mix_model._extra_features is None:
+    features = features.difference(["coef_extra_features"])
+
   if media_mix_model.media.ndim == 2:
     features = features.difference(models.GEO_ONLY_PRIORS)
     features = features.union(["coef_media"])
@@ -1309,5 +1313,4 @@ def plot_prior_and_posterior(
            subplot_title=subplot_title,
            i_ax=i_ax,
            **kwargs_for_helper_function)
-
   return fig

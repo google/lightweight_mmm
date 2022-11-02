@@ -401,8 +401,6 @@ class PlotTest(parameterized.TestCase):
     self.assertEqual(call_kwargs["loc"], "center left")
     self.assertEqual(call_kwargs["bbox_to_anchor"], (1, 0.5))
 
-
-  def test_plot_response_curves_works_twice_with_non_jnp_data(self):
     mmm_object = lightweight_mmm.LightweightMMM()
     mmm_object.fit(
         media=np.ones((50, 5)),
@@ -489,50 +487,39 @@ class PlotTest(parameterized.TestCase):
 
     self.assertEqual(called_clipping_bounds, expected_clipping_bounds)
 
-  @parameterized.named_parameters([
-      dict(
-          testcase_name="carryover_national_model",
-          model_name="carryover",
+  @parameterized.product(
+      (dict(
           is_geo_model=False,
-          expected_number_of_subplots=31),
-      dict(
-          testcase_name="carryover_geo_model",
-          model_name="carryover",
-          is_geo_model=True,
-          expected_number_of_subplots=47),
-      dict(
-          testcase_name="adstock_national_model",
-          model_name="adstock",
-          is_geo_model=False,
-          expected_number_of_subplots=26),
-      dict(
-          testcase_name="adstock_geo_model",
-          model_name="adstock",
-          is_geo_model=True,
-          expected_number_of_subplots=42),
-      dict(
-          testcase_name="hill_adstock_national_model",
-          model_name="hill_adstock",
-          is_geo_model=False,
-          expected_number_of_subplots=31),
-      dict(
-          testcase_name="hill_adstock_geo_model",
-          model_name="hill_adstock",
-          is_geo_model=True,
-          expected_number_of_subplots=47),
-  ])
+          non_extra_features=True,
+          extra_expected_number_of_subplots=0),
+       dict(
+           is_geo_model=False,
+           non_extra_features=False,
+           extra_expected_number_of_subplots=1),
+       dict(
+           is_geo_model=True,
+           non_extra_features=True,
+           extra_expected_number_of_subplots=14),
+       dict(
+           is_geo_model=True,
+           non_extra_features=False,
+           extra_expected_number_of_subplots=17)),
+      (dict(model_name="adstock", base_expected_number_of_subplots=25),
+       dict(model_name="carryover", base_expected_number_of_subplots=30),
+       dict(model_name="hill_adstock", base_expected_number_of_subplots=30)))
   def test_prior_posterior_plot_makes_correct_number_of_subplots(
-      self, model_name, is_geo_model, expected_number_of_subplots):
-
+      self, model_name, is_geo_model, non_extra_features,
+      base_expected_number_of_subplots, extra_expected_number_of_subplots):
+    expected_number_of_subplots = base_expected_number_of_subplots + extra_expected_number_of_subplots
     mmm = lightweight_mmm.LightweightMMM(model_name=model_name)
     if is_geo_model:
       media = jnp.ones((50, 5, 3))
       target = jnp.ones((50, 3))
-      extra_features = jnp.ones((50, 1, 3))
+      extra_features = None if non_extra_features else jnp.ones((50, 1, 3))
     else:
       media = jnp.ones((50, 5))
       target = jnp.ones(50)
-      extra_features = jnp.ones((50, 1))
+      extra_features = None if non_extra_features else jnp.ones((50, 1))
     mmm.fit(
         media=media,
         target=target,
@@ -542,7 +529,7 @@ class PlotTest(parameterized.TestCase):
         number_warmup=2,
         number_samples=2,
         number_chains=1)
-
+    
     fig = plot.plot_prior_and_posterior(
         media_mix_model=mmm, number_of_samples_for_prior=100, seed=0)
 
