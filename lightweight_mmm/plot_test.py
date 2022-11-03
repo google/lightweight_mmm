@@ -495,7 +495,7 @@ class PlotTest(parameterized.TestCase):
        dict(
            is_geo_model=False,
            non_extra_features=False,
-           extra_expected_number_of_subplots=1),
+           extra_expected_number_of_subplots=2),
        dict(
            is_geo_model=True,
            non_extra_features=True,
@@ -503,7 +503,7 @@ class PlotTest(parameterized.TestCase):
        dict(
            is_geo_model=True,
            non_extra_features=False,
-           extra_expected_number_of_subplots=17)),
+           extra_expected_number_of_subplots=20)),
       (dict(model_name="adstock", base_expected_number_of_subplots=25),
        dict(model_name="carryover", base_expected_number_of_subplots=30),
        dict(model_name="hill_adstock", base_expected_number_of_subplots=30)))
@@ -515,11 +515,11 @@ class PlotTest(parameterized.TestCase):
     if is_geo_model:
       media = jnp.ones((50, 5, 3))
       target = jnp.ones((50, 3))
-      extra_features = None if non_extra_features else jnp.ones((50, 1, 3))
+      extra_features = None if non_extra_features else jnp.ones((50, 2, 3))
     else:
       media = jnp.ones((50, 5))
       target = jnp.ones(50)
-      extra_features = None if non_extra_features else jnp.ones((50, 1))
+      extra_features = None if non_extra_features else jnp.ones((50, 2))
     mmm.fit(
         media=media,
         target=target,

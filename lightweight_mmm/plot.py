@@ -953,7 +953,7 @@ def plot_media_baseline_contribution_area_plot(
   # If true, legend_outside reversed the legend and puts the legend center left,
   # outside the chart.
   # If false, legend_outside only reverses the legend order.
-  
+
   # Channel order is based on the media input and chart logic.
   # Chart logic puts the last column onto the bottom.
   # To be in line with chart order, we reserve the channel order in the legend.
@@ -1149,7 +1149,6 @@ def _collect_features_for_prior_posterior_plot(
     features = selected_features
 
   geo_level_features = [
-      models._COEF_EXTRA_FEATURES,
       models._COEF_SEASONALITY,
       models._COEF_TREND,
       models._INTERCEPT,
@@ -1260,6 +1259,23 @@ def plot_prior_and_posterior(
       raise ValueError(f"{feature} has no prior specified.")
     kwargs_for_helper_function["prior_distribution"] = prior_distribution
 
+    if feature == models._COEF_EXTRA_FEATURES:
+      for i_feature in range(media_mix_model.trace[feature].shape[1]):
+        for j_geo in range(media_mix_model.n_geos):
+          subplot_title = f"{feature} feature {i_feature}, geo {j_geo}"
+          if media_mix_model.n_geos == 1:
+            posterior_samples = np.array(
+                media_mix_model.trace[feature][:, i_feature])
+          else:
+            posterior_samples = np.array(
+                media_mix_model.trace[feature][:, i_feature, j_geo])
+          (fig, gridspec_fig,
+           i_ax) = _make_prior_and_posterior_subplot_for_one_feature(
+               posterior_samples=posterior_samples,
+               subplot_title=subplot_title,
+               i_ax=i_ax,
+               **kwargs_for_helper_function)
+
     if feature in geo_level_features:
       for i_geo in range(media_mix_model.n_geos):
         subplot_title = f"{feature}, geo {i_geo}"
@@ -1304,8 +1320,8 @@ def plot_prior_and_posterior(
                i_ax=i_ax,
                **kwargs_for_helper_function)
 
-    if feature in other_features:
-      subplot_title = f"{feature} - extra feature"
+    if feature in other_features and feature != models._COEF_EXTRA_FEATURES:
+      subplot_title = f"{feature}"
       posterior_samples = np.array(media_mix_model.trace[feature])
       (fig, gridspec_fig,
        i_ax) = _make_prior_and_posterior_subplot_for_one_feature(
