@@ -375,6 +375,34 @@ class PlotTest(parameterized.TestCase):
         expected_contribution_pct,
         contribution_df[contribution_percentage_cols].values.flatten().tolist())
 
+  def test_create_media_baseline_contribution_df_returns_non_nan_value_for_media_contribution(
+      self):
+    mmm_object = lightweight_mmm.LightweightMMM()
+    mmm_object.media = jnp.concatenate([jnp.ones((1, 3)), jnp.zeros((1, 3))])
+    mmm_object._total_costs = jnp.array([2., 1., 3.]) * 15
+    mmm_object._target = jnp.ones((2, 1)) * 5
+    mmm_object.media_names = ["channel_0", "channel_1", "channel_2"]
+    mmm_object.trace = {
+        "media_transformed": jnp.concatenate(
+            [jnp.ones((20, 1, 3)), jnp.zeros((20, 1, 3))], axis=1
+            ) * jnp.arange(1, 4),
+        "mu": jnp.concatenate(
+            [jnp.ones((20, 1)), jnp.zeros((20, 1))-1], axis=1)  * 10,
+        "coef_media": jnp.ones((20, 3))
+    }
+    expected_contribution_pct = jnp.array([0.1, 0.2, 0.3, 0, 0, 0])
+    # Columns want to be tested whether they will return nan value.
+    contribution_percentage_cols = [
+        "{}_percentage".format(col) for col in mmm_object.media_names
+    ]
+
+    contribution_df = plot.create_media_baseline_contribution_df(
+        media_mix_model=mmm_object)
+
+    np.testing.assert_array_almost_equal(
+        expected_contribution_pct,
+        contribution_df[contribution_percentage_cols].values.flatten().tolist())
+
   @parameterized.named_parameters([
       dict(
           testcase_name="national",

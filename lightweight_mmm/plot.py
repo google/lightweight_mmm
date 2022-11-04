@@ -212,7 +212,14 @@ def create_media_baseline_contribution_df(
   media_contribution_pct_by_channel = (
       sum_scaled_media_contribution_across_samples /
       adjusted_sum_scaled_prediction_across_samples.reshape(-1, 1))
+  # Adjust media pct contribution if the value is nan
+  media_contribution_pct_by_channel = np.nan_to_num(
+      media_contribution_pct_by_channel)
+
   baseline_contribution_pct = adjusted_sum_scaled_baseline_contribution_across_samples / adjusted_sum_scaled_prediction_across_samples
+  # Adjust baseline pct contribution if the value is nan
+  baseline_contribution_pct = np.nan_to_num(
+      baseline_contribution_pct)
 
   # If the channel_names is none, then create naming covention for the channels.
   if channel_names is None:
@@ -241,6 +248,11 @@ def create_media_baseline_contribution_df(
   # Take the average of the inverse transformed prediction across samples.
   posterior_pred_df = pd.DataFrame(
       posterior_pred.mean(axis=0), columns=["avg_prediction"])
+
+  # Adjust prediction value when prediction is less than 0.
+  posterior_pred_df.loc[
+      posterior_pred_df["avg_prediction"] <= 0, "avg_prediction"] = 0
+
   contribution_pct_df.columns = [
       "{}_percentage".format(col) for col in contribution_pct_df.columns
   ]
