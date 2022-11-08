@@ -25,8 +25,89 @@ import numpy as np
 import numpyro.distributions as dist
 
 from lightweight_mmm import lightweight_mmm
+from lightweight_mmm import models
 from lightweight_mmm import plot
 from lightweight_mmm import preprocessing
+
+MOCK_NATIONAL_TRACE = {
+    "coef_extra_features": np.ones([10, 2]),
+    "coef_media": np.ones([10, 5]),
+    "coef_trend": np.ones([10, 1]),
+    "expo_trend": np.ones([10, 1]),
+    "gamma_seasonality": np.ones([10, 3, 2]),
+    "intercept": np.ones([10, 1]),
+    "media_transformed": np.ones([10, 50, 5,]),
+    "mu": np.ones([10, 50]),
+    "sigma": np.ones([10, 1]),
+    "ad_effect_retention_rate": np.ones([10, 5]),
+    "exponent": np.ones([10, 5]),
+    "half_max_effective_concentration": np.ones([10, 5]),
+    "lag_weight": np.ones([10, 5]),
+    "slope": np.ones([10, 5]),
+    "peak_effect_delay": np.ones([10, 5]),
+    }
+
+MOCK_GEO_TRACE = {
+    "channel_coef_media": np.ones([10, 5, 1]),
+    "coef_extra_features": np.ones([10, 2, 3]),
+    "coef_media": np.ones([10, 5, 3]),
+    "coef_seasonality": np.ones([10, 3]),
+    "coef_trend": np.ones([10, 3]),
+    "expo_trend": np.ones([10, 1]),
+    "gamma_seasonality": np.ones([10, 3, 2]),
+    "intercept": np.ones([10, 3]),
+    "media_transformed": np.ones([10, 50, 5, 3]),
+    "mu": np.ones([10, 50, 3]),
+    "sigma": np.ones([10, 3]),
+    "ad_effect_retention_rate": np.ones([10, 5]),
+    "exponent": np.ones([10, 5]),
+    "half_max_effective_concentration": np.ones([10, 5]),
+    "lag_weight": np.ones([10, 5]),
+    "peak_effect_delay": np.ones([10, 5]),
+    "slope": np.ones([10, 5]),
+}
+
+
+def _set_up_mock_mmm(model_name: str,
+                     is_geo_model: bool) -> lightweight_mmm.LightweightMMM:
+  """Creates a mock LightweightMMM instance that acts like a fitted model.
+
+  These instances are used when we want to run tests on more diverse ranges of
+  models than the two standard national_mmm and geo_mmm defined below but don't
+  need the unit tests to spend time actually running the model fits.
+
+  Args:
+    model_name: One of ["adstock", "carryover", or "hill_adstock"], specifying
+      which model type should be used in the mock LightweightMMM.
+    is_geo_model: Whether to create a geo-level model (True) or a national-level
+      model (False).
+
+  Returns:
+    mmm: A LightweightMMM object that can be treated like a fitted model
+    for plotting-related unit tests.
+  """
+  initial_mock_trace = MOCK_GEO_TRACE if is_geo_model else MOCK_NATIONAL_TRACE
+  all_model_names = {"adstock", "carryover", "hill_adstock"}
+  model_items_to_delete = frozenset.union(*[
+      models.TRANSFORM_PRIORS_NAMES[x]
+      for x in all_model_names - {model_name}
+  ]) - models.TRANSFORM_PRIORS_NAMES[model_name]
+  mock_trace = {
+      key: initial_mock_trace[key]
+      for key in initial_mock_trace
+      if key not in model_items_to_delete
+  }
+  mmm = lightweight_mmm.LightweightMMM(model_name=model_name)
+  mmm.n_media_channels = 5
+  mmm.n_geos = 3 if is_geo_model else 1
+  mmm._media_prior = jnp.ones(5)
+  mmm._weekday_seasonality = False
+  mmm._degrees_seasonality = 3
+  mmm.custom_priors = {}
+  mmm._extra_features = None
+  mmm.trace = mock_trace
+  mmm.media = jnp.ones_like(mock_trace["media_transformed"][0])
+  return mmm
 
 
 class PlotTest(parameterized.TestCase):
@@ -518,50 +599,40 @@ class PlotTest(parameterized.TestCase):
   @parameterized.product(
       (dict(
           is_geo_model=False,
-          non_extra_features=True,
+          has_extra_features=False,
           extra_expected_number_of_subplots=0),
        dict(
            is_geo_model=False,
-           non_extra_features=False,
+           has_extra_features=True,
            extra_expected_number_of_subplots=2),
        dict(
            is_geo_model=True,
-           non_extra_features=True,
+           has_extra_features=False,
            extra_expected_number_of_subplots=14),
        dict(
            is_geo_model=True,
-           non_extra_features=False,
+           has_extra_features=True,
            extra_expected_number_of_subplots=20)),
       (dict(model_name="adstock", base_expected_number_of_subplots=25),
        dict(model_name="carryover", base_expected_number_of_subplots=30),
        dict(model_name="hill_adstock", base_expected_number_of_subplots=30)))
   def test_prior_posterior_plot_makes_correct_number_of_subplots(
-      self, model_name, is_geo_model, non_extra_features,
+      self, model_name, is_geo_model, has_extra_features,
       base_expected_number_of_subplots, extra_expected_number_of_subplots):
-    expected_number_of_subplots = base_expected_number_of_subplots + extra_expected_number_of_subplots
-    mmm = lightweight_mmm.LightweightMMM(model_name=model_name)
-    if is_geo_model:
-      media = jnp.ones((50, 5, 3))
-      target = jnp.ones((50, 3))
-      extra_features = None if non_extra_features else jnp.ones((50, 2, 3))
-    else:
-      media = jnp.ones((50, 5))
-      target = jnp.ones(50)
-      extra_features = None if non_extra_features else jnp.ones((50, 2))
-    mmm.fit(
-        media=media,
-        target=target,
-        media_prior=jnp.ones(5) * 50,
-        extra_features=extra_features,
-        degrees_seasonality=3,
-        number_warmup=2,
-        number_samples=2,
-        number_chains=1)
-    
-    fig = plot.plot_prior_and_posterior(
-        media_mix_model=mmm, number_of_samples_for_prior=100, seed=0)
+    expected_number_of_subplots = (
+        base_expected_number_of_subplots + extra_expected_number_of_subplots)
+    mmm = _set_up_mock_mmm(model_name=model_name, is_geo_model=is_geo_model)
+    if not has_extra_features:
+      del mmm.trace["coef_extra_features"]
+    mmm._extra_features = jnp.ones_like(
+        mmm.trace["coef_extra_features"][0]) if has_extra_features else None
 
-    self.assertLen(fig.get_axes(), expected_number_of_subplots)
+    plot.plot_prior_and_posterior(
+        media_mix_model=mmm, number_of_samples_for_prior=10, seed=0)
+
+    # each subplot gets two calls, one for the prior and one for the posterior
+    number_of_subplots_created = self.mock_sns_kdeplot.call_count / 2
+    self.assertEqual(number_of_subplots_created, expected_number_of_subplots)
 
   @parameterized.product(
       (dict(is_geo_model=True, expected_number_of_subplots=11),
@@ -576,32 +647,17 @@ class PlotTest(parameterized.TestCase):
   def test_selected_features_for_prior_posterior_plot_makes_correct_number_of_subplots(
       self, model_name, selected_features, is_geo_model,
       expected_number_of_subplots):
+    mmm = _set_up_mock_mmm(model_name=model_name, is_geo_model=is_geo_model)
 
-    mmm = lightweight_mmm.LightweightMMM(model_name=model_name)
-    if is_geo_model:
-      media = jnp.ones((50, 5, 3))
-      target = jnp.ones((50, 3))
-      extra_features = jnp.ones((50, 1, 3))
-    else:
-      media = jnp.ones((50, 5))
-      target = jnp.ones(50)
-      extra_features = jnp.ones((50, 1))
-    mmm.fit(
-        media=media,
-        target=target,
-        media_prior=jnp.ones(5) * 50,
-        extra_features=extra_features,
-        number_warmup=2,
-        number_samples=2,
-        number_chains=1)
-
-    fig = plot.plot_prior_and_posterior(
+    plot.plot_prior_and_posterior(
         media_mix_model=mmm,
-        number_of_samples_for_prior=100,
+        number_of_samples_for_prior=10,
         seed=0,
         selected_features=selected_features)
 
-    self.assertLen(fig.get_axes(), expected_number_of_subplots)
+    # each subplot gets two calls, one for the prior and one for the posterior
+    number_of_subplots_created = self.mock_sns_kdeplot.call_count / 2
+    self.assertEqual(number_of_subplots_created, expected_number_of_subplots)
 
   @parameterized.named_parameters([
       dict(
@@ -623,7 +679,7 @@ class PlotTest(parameterized.TestCase):
     with self.assertRaisesRegex(ValueError, expected_regex=expected_error):
       plot.plot_prior_and_posterior(
           media_mix_model=mmm,
-          number_of_samples_for_prior=100,
+          number_of_samples_for_prior=10,
           selected_features=[
               "sigma", "intercept", "misspelled_feature"
           ])
