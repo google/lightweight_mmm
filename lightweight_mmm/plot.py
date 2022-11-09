@@ -250,8 +250,9 @@ def create_media_baseline_contribution_df(
       posterior_pred.mean(axis=0), columns=["avg_prediction"])
 
   # Adjust prediction value when prediction is less than 0.
-  posterior_pred_df.loc[
-      posterior_pred_df["avg_prediction"] <= 0, "avg_prediction"] = 0
+  posterior_pred_df["avg_prediction"] = np.where(
+      posterior_pred_df["avg_prediction"] < 0, 0,
+      posterior_pred_df["avg_prediction"])
 
   contribution_pct_df.columns = [
       "{}_percentage".format(col) for col in contribution_pct_df.columns
