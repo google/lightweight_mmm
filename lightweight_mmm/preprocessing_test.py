@@ -23,20 +23,20 @@ import pandas as pd
 from lightweight_mmm import preprocessing
 
 
-GEO_DATA_FOR_CORRELATION_TESTS = [[[0.1, 0.5], [0.2, 0.4], [0.3, 0.7]],
+_GEO_DATA_FOR_CORRELATION_TESTS = [[[0.1, 0.5], [0.2, 0.4], [0.3, 0.7]],
                                   [[0.2, 0.5], [0.4, 0.6], [0.2, 0.9]],
                                   [[0.3, 0.5], [0.7, 0.8], [0.1, 0.1]],
                                   [[0.4, 0.5], [0.8, 0.5], [0, 0.2]],
                                   [[0.5, 0.5], [0.9, 0.6], [0, 0.5]]]
-NATIONAL_DATA_FOR_CORRELATION_TESTS = [[1, 2, 3, 5], [2, 3, 4, 5], [3, 4, 6, 5],
+_NATIONAL_DATA_FOR_CORRELATION_TESTS = [[1, 2, 3, 5], [2, 3, 4, 5], [3, 4, 6, 5],
                                        [2, 5, 7, 5], [3, 7, 9, 5], [2, 6, 9, 5],
                                        [3, 5, 9, 5], [4, 8, 9, 5], [5, 7, 8, 5],
                                        [6, 9, 9, 5]]
 
-NATIONAL_TARGET_DATA = [0.2, 0.4, 0.6, 0.8, 0.5, 0.7, 0.9, 1.0, 0.9, 1.2]
-GEO_TARGET_DATA = [[0.2, 0.1, 1], [0.4, 0.2, 0.5], [0.6, 0.3, 1], [0.8, 0.4, 0],
+_NATIONAL_TARGET_DATA = [0.2, 0.4, 0.6, 0.8, 0.5, 0.7, 0.9, 1.0, 0.9, 1.2]
+_GEO_TARGET_DATA = [[0.2, 0.1, 1], [0.4, 0.2, 0.5], [0.6, 0.3, 1], [0.8, 0.4, 0],
                    [1.0, 0.5, 0.2]]
-NATIONAL_CORRELATION_MATRICES = [
+_NATIONAL_CORRELATION_MATRICES = [
     pd.DataFrame(
         data=[[1, 0.83381, 0.60244, np.nan, 0.81846],
               [0.83381, 1, 0.86645, np.nan, 0.82736],
@@ -47,7 +47,7 @@ NATIONAL_CORRELATION_MATRICES = [
         index=["feature_0", "feature_1", "feature_2", "feature_3", "target"],
         dtype=float),
 ]
-GEO_CORRELATION_MATRICES = [
+_GEO_CORRELATION_MATRICES = [
     pd.DataFrame(
         data=[[1, 0.97619, -0.97014, 1],
               [0.97619, 1, -0.98650, 0.97610],
@@ -65,6 +65,18 @@ GEO_CORRELATION_MATRICES = [
         index=["feature_0", "feature_1", "feature_2", "target"],
         dtype=float)
 ]
+
+_NATIONAL_VARIANCES = pd.DataFrame(
+    data=[[2.09, 4.44, 4.61, 0]],
+    columns=["feature_0", "feature_1", "feature_2", "feature_3"],
+    index=["geo_0"],
+    dtype=float)
+
+_GEO_VARIANCES = pd.DataFrame(
+    data=[[0.02, 0.068, 0.0136], [0, 0.0176, 0.0896]],
+    columns=["feature_0", "feature_1", "feature_2"],
+    index=["geo_0", "geo_1"],
+    dtype=float)
 
 
 class PreprocessingTest(parameterized.TestCase):
@@ -604,15 +616,15 @@ class PreprocessingTest(parameterized.TestCase):
   @parameterized.named_parameters([
       dict(
           testcase_name="national_data",
-          features=NATIONAL_DATA_FOR_CORRELATION_TESTS,
-          target=NATIONAL_TARGET_DATA,
-          expected_correlations=NATIONAL_CORRELATION_MATRICES,
+          features=_NATIONAL_DATA_FOR_CORRELATION_TESTS,
+          target=_NATIONAL_TARGET_DATA,
+          expected_correlations=_NATIONAL_CORRELATION_MATRICES,
       ),
       dict(
           testcase_name="geo_data",
-          features=GEO_DATA_FOR_CORRELATION_TESTS,
-          target=GEO_TARGET_DATA,
-          expected_correlations=GEO_CORRELATION_MATRICES,)
+          features=_GEO_DATA_FOR_CORRELATION_TESTS,
+          target=_GEO_TARGET_DATA,
+          expected_correlations=_GEO_CORRELATION_MATRICES,)
   ])
   def test_compute_correlations_returns_expected_values(
       self, features, target, expected_correlations):
@@ -640,21 +652,21 @@ class PreprocessingTest(parameterized.TestCase):
   @parameterized.named_parameters([
       dict(
           testcase_name="national_data",
-          features=NATIONAL_DATA_FOR_CORRELATION_TESTS,
-          target=NATIONAL_TARGET_DATA,
-          expected_correlations=NATIONAL_CORRELATION_MATRICES),
+          features=_NATIONAL_DATA_FOR_CORRELATION_TESTS,
+          target=_NATIONAL_TARGET_DATA,
+          expected_correlations=_NATIONAL_CORRELATION_MATRICES),
       dict(
           testcase_name="geo_data",
-          features=GEO_DATA_FOR_CORRELATION_TESTS,
-          target=GEO_TARGET_DATA,
-          expected_correlations=GEO_CORRELATION_MATRICES),
+          features=_GEO_DATA_FOR_CORRELATION_TESTS,
+          target=_GEO_TARGET_DATA,
+          expected_correlations=_GEO_CORRELATION_MATRICES),
       ])
   def test_check_data_quality_with_extra_features(self, features, target,
                                                   expected_correlations):
     media_data = jnp.array(features)[:, :2]
     extra_features = jnp.array(features)[:, 2:]
 
-    correlations = preprocessing.check_data_quality(
+    correlations, _ = preprocessing.check_data_quality(
         media_data=media_data,
         target_data=jnp.array(target),
         extra_features_data=extra_features)
@@ -662,6 +674,26 @@ class PreprocessingTest(parameterized.TestCase):
     for i, correlation in enumerate(correlations):
       pd.testing.assert_frame_equal(
           correlation, expected_correlations[i], atol=1e-3)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="national_data",
+          features=_NATIONAL_DATA_FOR_CORRELATION_TESTS,
+          expected_variances=_NATIONAL_VARIANCES,
+      ),
+      dict(
+          testcase_name="geo_data",
+          features=_GEO_DATA_FOR_CORRELATION_TESTS,
+          expected_variances=_GEO_VARIANCES,
+      )
+  ])
+  def test_compute_variances_returns_expected_values(self, features,
+                                                     expected_variances):
+    features = jnp.array(features)
+
+    variances = preprocessing._compute_variances(features)
+
+    pd.testing.assert_frame_equal(variances, expected_variances, atol=1e-3)
 
 
 if __name__ == "__main__":

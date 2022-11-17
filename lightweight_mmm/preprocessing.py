@@ -14,7 +14,7 @@
 
 """Utilities for preprocessing dataset for training LightweightMMM."""
 
-from typing import Callable, List, Optional, Union
+from typing import Callable, List, Optional, Tuple, Union
 
 import jax.numpy as jnp
 import pandas as pd
@@ -215,11 +215,44 @@ def _compute_correlations(features: jnp.ndarray,
   return correlation_matrix_output
 
 
+def _compute_variances(features: jnp.ndarray) -> pd.DataFrame:
+  """Computes variances over time for each feature.
+
+  In general, higher variance is better since it creates more signal for the
+  regression analysis. However, if the features have not been scaled (divided by
+  the mean), then the variance can take any value and this analysis is not
+  meaningful.
+
+  Args:
+    features: Features for media mix model (media and non-media variables).
+
+  Returns:
+    Dataframe containing the variance over time for each feature. This dataframe
+      contains one row per geo, and just a single row for national data.
+  """
+  number_of_features = features.shape[1]
+  number_of_geos = 1 if features.ndim == 2 else features.shape[2]
+
+  variances_as_series = []
+  for i_geo in range(number_of_geos):
+    features_for_this_geo = features[...,
+                                     i_geo] if number_of_geos > 1 else features
+    variances_as_series.append(
+        pd.DataFrame(data=features_for_this_geo).var(axis=0, ddof=0))
+
+  variances = pd.DataFrame(variances_as_series)
+  variances.columns = [f"feature_{i}" for i in range(number_of_features)]
+  variances.index = [f"geo_{i}" for i in range(number_of_geos)]
+
+  return variances
+
+# TODO(): add feature_names arguments to this function
+
 def check_data_quality(
     media_data: jnp.ndarray,
     target_data: jnp.ndarray,
     extra_features_data: Optional[jnp.ndarray] = None,
-    ) -> List[pd.DataFrame]:
+    ) -> Tuple[List[pd.DataFrame], pd.DataFrame]:
   """Checks LMMM data quality, to be used before fitting a model.
 
   Args:
@@ -237,22 +270,26 @@ def check_data_quality(
       order of magnitude to the media_data and target_data.
 
   Returns:
-    List of dataframes containing Pearson correlation coefficients between each
-      feature, as well as between features and the target variable. For
-      national-level data the list contains just one dataframe, and for
+    correlations: List of dataframes containing Pearson correlation coefficients
+      between each feature, as well as between features and the target variable.
+      For national-level data the list contains just one dataframe, and for
       geo-level data the list contains one dataframe for each geo.
+    variances: Dataframe containing the variance over time for each feature.
+      This dataframe contains one row per geo, and just a single row for
+      national data.
   """
 
   if extra_features_data is not None:
     all_feature_data = jnp.concatenate([media_data, extra_features_data],
                                        axis=1)
   else:
-    all_feature_data = media_data
+    all_feature_data = jnp.array(media_data)
 
   correlations = _compute_correlations(all_feature_data, target_data)
   # TODO(): VIF analysis
-  # TODO(): Variance analysis
-  # TODO(): spend fraction analysis
 
+  variances = _compute_variances(all_feature_data)
+
+  # TODO(): spend fraction analysis
   # TODO(): clean up output list
-  return correlations
+  return correlations, variances
