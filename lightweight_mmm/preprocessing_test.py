@@ -18,8 +18,53 @@ from absl.testing import absltest
 from absl.testing import parameterized
 import jax.numpy as jnp
 import numpy as np
+import pandas as pd
 
 from lightweight_mmm import preprocessing
+
+
+GEO_DATA_FOR_CORRELATION_TESTS = [[[0.1, 0.5], [0.2, 0.4], [0.3, 0.7]],
+                                  [[0.2, 0.5], [0.4, 0.6], [0.2, 0.9]],
+                                  [[0.3, 0.5], [0.7, 0.8], [0.1, 0.1]],
+                                  [[0.4, 0.5], [0.8, 0.5], [0, 0.2]],
+                                  [[0.5, 0.5], [0.9, 0.6], [0, 0.5]]]
+NATIONAL_DATA_FOR_CORRELATION_TESTS = [[1, 2, 3, 5], [2, 3, 4, 5], [3, 4, 6, 5],
+                                       [2, 5, 7, 5], [3, 7, 9, 5], [2, 6, 9, 5],
+                                       [3, 5, 9, 5], [4, 8, 9, 5], [5, 7, 8, 5],
+                                       [6, 9, 9, 5]]
+
+NATIONAL_TARGET_DATA = [0.2, 0.4, 0.6, 0.8, 0.5, 0.7, 0.9, 1.0, 0.9, 1.2]
+GEO_TARGET_DATA = [[0.2, 0.1, 1], [0.4, 0.2, 0.5], [0.6, 0.3, 1], [0.8, 0.4, 0],
+                   [1.0, 0.5, 0.2]]
+NATIONAL_CORRELATION_MATRICES = [
+    pd.DataFrame(
+        data=[[1, 0.83381, 0.60244, np.nan, 0.81846],
+              [0.83381, 1, 0.86645, np.nan, 0.82736],
+              [0.60245, 0.86645, 1, np.nan, 0.77283],
+              [np.nan, np.nan, np.nan, np.nan, np.nan],
+              [0.81847, 0.82736, 0.77283, np.nan, 1]],
+        columns=["feature_0", "feature_1", "feature_2", "feature_3", "target"],
+        index=["feature_0", "feature_1", "feature_2", "feature_3", "target"],
+        dtype=float),
+]
+GEO_CORRELATION_MATRICES = [
+    pd.DataFrame(
+        data=[[1, 0.97619, -0.97014, 1],
+              [0.97619, 1, -0.98650, 0.97610],
+              [-0.97014254, -0.9865005, 1, -0.97014,],
+              [1, 0.97619, -0.97014, 1]],
+        columns=["feature_0", "feature_1", "feature_2", "target"],
+        index=["feature_0", "feature_1", "feature_2", "target"],
+        dtype=float),
+    pd.DataFrame(
+        data=[[np.nan, np.nan, np.nan, np.nan],
+              [np.nan, 1, -0.46335, 0.31980],
+              [np.nan, -0.46335, 1, -0.51970],
+              [np.nan, 0.31980, -0.51970, 1]],
+        columns=["feature_0", "feature_1", "feature_2", "target"],
+        index=["feature_0", "feature_1", "feature_2", "target"],
+        dtype=float)
+]
 
 
 class PreprocessingTest(parameterized.TestCase):
@@ -555,6 +600,69 @@ class PreprocessingTest(parameterized.TestCase):
 
     np.testing.assert_array_almost_equal(transformed_data,
                                          jnp.array(expected_transformed))
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="national_data",
+          features=NATIONAL_DATA_FOR_CORRELATION_TESTS,
+          target=NATIONAL_TARGET_DATA,
+          expected_correlations=NATIONAL_CORRELATION_MATRICES,
+      ),
+      dict(
+          testcase_name="geo_data",
+          features=GEO_DATA_FOR_CORRELATION_TESTS,
+          target=GEO_TARGET_DATA,
+          expected_correlations=GEO_CORRELATION_MATRICES,)
+  ])
+  def test_compute_correlations_returns_expected_values(
+      self, features, target, expected_correlations):
+    features = jnp.array(features)
+    target = jnp.array(target)
+
+    correlations = preprocessing._compute_correlations(
+        features, target)
+
+    for i, correlation in enumerate(correlations):
+      pd.testing.assert_frame_equal(
+          correlation, expected_correlations[i], atol=1e-3)
+
+  def test_compute_correlations_raises_value_error(self):
+    features = jnp.array([[[0.1, 0.2, 0.3, 0.4, 0.5], [0.1, 0.2, 0.3, 0.4, 0]],
+                          [[0.5, 0.4, 0.3, 0.2, 0.1], [0.5, 0.4, 0.3, 0.2, 0]],
+                          [[0.3, 0.3, 0.3, 0.3, 0.3], [0.3, 0.3, 0, 0, 0]]]).T
+    target = jnp.array([0.2, 0.4, 0.6, 0.8, 1.0])
+    expected_message = (r"Incompatible shapes between features \(5, 2, 3\) and "
+                        r"target \(5,\)\.")
+
+    with self.assertRaisesRegex(ValueError, expected_message):
+      preprocessing._compute_correlations(features, target)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="national_data",
+          features=NATIONAL_DATA_FOR_CORRELATION_TESTS,
+          target=NATIONAL_TARGET_DATA,
+          expected_correlations=NATIONAL_CORRELATION_MATRICES),
+      dict(
+          testcase_name="geo_data",
+          features=GEO_DATA_FOR_CORRELATION_TESTS,
+          target=GEO_TARGET_DATA,
+          expected_correlations=GEO_CORRELATION_MATRICES),
+      ])
+  def test_check_data_quality_with_extra_features(self, features, target,
+                                                  expected_correlations):
+    media_data = jnp.array(features)[:, :2]
+    extra_features = jnp.array(features)[:, 2:]
+
+    correlations = preprocessing.check_data_quality(
+        media_data=media_data,
+        target_data=jnp.array(target),
+        extra_features_data=extra_features)
+
+    for i, correlation in enumerate(correlations):
+      pd.testing.assert_frame_equal(
+          correlation, expected_correlations[i], atol=1e-3)
+
 
 if __name__ == "__main__":
   absltest.main()

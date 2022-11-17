@@ -14,10 +14,10 @@
 
 """Utilities for preprocessing dataset for training LightweightMMM."""
 
-from typing import Callable, Optional, Union
+from typing import Callable, List, Optional, Union
 
 import jax.numpy as jnp
-
+import pandas as pd
 from sklearn import base
 
 
@@ -154,3 +154,105 @@ class CustomScaler(base.TransformerMixin):
       Dataset with the inverse transformation applied.
     """
     return self.divide_by * data / self.multiply_by
+
+
+def _compute_correlations(features: jnp.ndarray,
+                          target: jnp.ndarray) -> List[pd.DataFrame]:
+  """Computes feature-feature and feature-target correlations.
+
+  Helper function for DataQualityCheck.
+
+  Args:
+    features: Features for media mix model (media and non-media variables).
+    target: Target variable for media mix model.
+
+  Returns:
+    List of dataframes containing Pearson correlation coefficients between each
+      feature, as well as between features and the target variable. For
+      national-level data the list contains just one dataframe, and for
+      geo-level data the list contains one dataframe for each geo.
+
+  Raises:
+    ValueError: If features and target have incompatible shapes (e.g. one is
+      geo-level and the other national-level).
+  """
+
+  if features.ndim == 2 and target.ndim == 1:
+    number_of_geos = 1
+  elif features.ndim == 3 and target.ndim == 2:
+    number_of_geos = features.shape[2]
+  else:
+    raise ValueError(f"Incompatible shapes between features {features.shape}"
+                     f" and target {target.shape}.")
+
+  number_of_features = features.shape[1]
+  column_names = [f"feature_{i}" for i in range(number_of_features)
+                 ] + ["target"]
+
+  correlation_matrix_output = []
+  for i_geo in range(number_of_geos):
+
+    if number_of_geos == 1:
+      features_and_target = jnp.concatenate(
+          [features, jnp.expand_dims(target, axis=1)], axis=1)
+    else:
+      features_and_target = jnp.concatenate(
+          [features[:, :, i_geo],
+           jnp.expand_dims(target[:, i_geo], axis=1)],
+          axis=1)
+
+    covariance_matrix = jnp.cov(features_and_target, rowvar=False)
+    standard_deviations = jnp.std(features_and_target, axis=0, ddof=1)
+    correlation_matrix = covariance_matrix / jnp.outer(standard_deviations,
+                                                       standard_deviations)
+    correlation_matrix = pd.DataFrame(
+        correlation_matrix,
+        columns=column_names,
+        index=column_names,
+        dtype=float)
+    correlation_matrix_output.append(correlation_matrix)
+
+  return correlation_matrix_output
+
+
+def check_data_quality(
+    media_data: jnp.ndarray,
+    target_data: jnp.ndarray,
+    extra_features_data: Optional[jnp.ndarray] = None,
+    ) -> List[pd.DataFrame]:
+  """Checks LMMM data quality, to be used before fitting a model.
+
+  Args:
+    media_data: National-level or geo-level media impressions data, such as
+      media_data_train or media_data in the example Collaboratory. This dataset
+      should be scaled so that it has a similar order of magnitude to the
+      target_data and extra_features_data (if applicable).
+    target_data: National-level or geo-level sales or revenue data, such
+      as target_train or target in the example Colabs. This dataset should be
+      scaled so that it has a similar order of magnitude to the
+      media_data and extra_features_data (if applicable).
+    extra_features_data: Optional national-level or geo-level extra
+      features data, such as extra_features_train or extra_features in the
+      example Colabs. This dataset should be scaled so that it has a similar
+      order of magnitude to the media_data and target_data.
+
+  Returns:
+    List of dataframes containing Pearson correlation coefficients between each
+      feature, as well as between features and the target variable. For
+      national-level data the list contains just one dataframe, and for
+      geo-level data the list contains one dataframe for each geo.
+  """
+
+  if extra_features_data is not None:
+    all_feature_data = jnp.concatenate([media_data, extra_features_data],
+                                       axis=1)
+  else:
+    all_feature_data = media_data
+
+  correlations = _compute_correlations(all_feature_data, target_data)
+  # TODO(): VIF analysis
+  # TODO(): Variance analysis
+  # TODO(): spend fraction analysis
+
+  # TODO(): clean up output list
+  return correlations
