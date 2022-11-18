@@ -23,19 +23,18 @@ import pandas as pd
 from lightweight_mmm import preprocessing
 
 
-_GEO_DATA_FOR_CORRELATION_TESTS = [[[0.1, 0.5], [0.2, 0.4], [0.3, 0.7]],
-                                  [[0.2, 0.5], [0.4, 0.6], [0.2, 0.9]],
-                                  [[0.3, 0.5], [0.7, 0.8], [0.1, 0.1]],
-                                  [[0.4, 0.5], [0.8, 0.5], [0, 0.2]],
-                                  [[0.5, 0.5], [0.9, 0.6], [0, 0.5]]]
-_NATIONAL_DATA_FOR_CORRELATION_TESTS = [[1, 2, 3, 5], [2, 3, 4, 5], [3, 4, 6, 5],
-                                       [2, 5, 7, 5], [3, 7, 9, 5], [2, 6, 9, 5],
-                                       [3, 5, 9, 5], [4, 8, 9, 5], [5, 7, 8, 5],
-                                       [6, 9, 9, 5]]
-
+_GEO_DATA_FOR_TESTS = [[[0.1, 0.5], [0.2, 0.4], [0.3, 0.7]],
+                       [[0.2, 0.5], [0.4, 0.6], [0.2, 0.9]],
+                       [[0.3, 0.5], [0.7, 0.8], [0.1, 0.1]],
+                       [[0.4, 0.5], [0.8, 0.5], [0, 0.2]],
+                       [[0.5, 0.5], [0.9, 0.6], [0, 0.5]]]
+_NATIONAL_DATA_FOR_TESTS = [[1, 2, 3, 5], [2, 3, 4, 5], [3, 4, 6, 5],
+                            [2, 5, 7, 5], [3, 7, 9, 5], [2, 6, 9, 5],
+                            [3, 5, 9, 5], [4, 8, 9, 5], [5, 7, 8, 5],
+                            [6, 9, 9, 5]]
 _NATIONAL_TARGET_DATA = [0.2, 0.4, 0.6, 0.8, 0.5, 0.7, 0.9, 1.0, 0.9, 1.2]
-_GEO_TARGET_DATA = [[0.2, 0.1, 1], [0.4, 0.2, 0.5], [0.6, 0.3, 1], [0.8, 0.4, 0],
-                   [1.0, 0.5, 0.2]]
+_GEO_TARGET_DATA = [[0.2, 0.1, 1], [0.4, 0.2, 0.5], [0.6, 0.3, 1],
+                    [0.8, 0.4, 0], [1.0, 0.5, 0.2]]
 _NATIONAL_CORRELATION_MATRICES = [
     pd.DataFrame(
         data=[[1, 0.83381, 0.60244, np.nan, 0.81846],
@@ -65,13 +64,11 @@ _GEO_CORRELATION_MATRICES = [
         index=["feature_0", "feature_1", "feature_2", "target"],
         dtype=float)
 ]
-
 _NATIONAL_VARIANCES = pd.DataFrame(
     data=[[2.09, 4.44, 4.61, 0]],
     columns=["feature_0", "feature_1", "feature_2", "feature_3"],
     index=["geo_0"],
     dtype=float)
-
 _GEO_VARIANCES = pd.DataFrame(
     data=[[0.02, 0.068, 0.0136], [0, 0.0176, 0.0896]],
     columns=["feature_0", "feature_1", "feature_2"],
@@ -616,13 +613,13 @@ class PreprocessingTest(parameterized.TestCase):
   @parameterized.named_parameters([
       dict(
           testcase_name="national_data",
-          features=_NATIONAL_DATA_FOR_CORRELATION_TESTS,
+          features=_NATIONAL_DATA_FOR_TESTS,
           target=_NATIONAL_TARGET_DATA,
           expected_correlations=_NATIONAL_CORRELATION_MATRICES,
       ),
       dict(
           testcase_name="geo_data",
-          features=_GEO_DATA_FOR_CORRELATION_TESTS,
+          features=_GEO_DATA_FOR_TESTS,
           target=_GEO_TARGET_DATA,
           expected_correlations=_GEO_CORRELATION_MATRICES,)
   ])
@@ -630,34 +627,47 @@ class PreprocessingTest(parameterized.TestCase):
       self, features, target, expected_correlations):
     features = jnp.array(features)
     target = jnp.array(target)
+    feature_names = [f"feature_{i}" for i in range(features.shape[1])]
 
     correlations = preprocessing._compute_correlations(
-        features, target)
+        features=features, target=target, feature_names=feature_names)
 
-    for i, correlation in enumerate(correlations):
+    for i, expected_correlation in enumerate(expected_correlations):
       pd.testing.assert_frame_equal(
-          correlation, expected_correlations[i], atol=1e-3)
+          correlations[i], expected_correlation, atol=1e-3)
 
-  def test_compute_correlations_raises_value_error(self):
-    features = jnp.array([[[0.1, 0.2, 0.3, 0.4, 0.5], [0.1, 0.2, 0.3, 0.4, 0]],
-                          [[0.5, 0.4, 0.3, 0.2, 0.1], [0.5, 0.4, 0.3, 0.2, 0]],
-                          [[0.3, 0.3, 0.3, 0.3, 0.3], [0.3, 0.3, 0, 0, 0]]]).T
-    target = jnp.array([0.2, 0.4, 0.6, 0.8, 1.0])
-    expected_message = (r"Incompatible shapes between features \(5, 2, 3\) and "
-                        r"target \(5,\)\.")
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="1_dimensional_target",
+          features=np.ones([5, 2, 3]),
+          target=np.zeros(5),
+          expected_message=(r"Incompatible shapes between features \(5, 2, 3\) "
+                            r"and target \(5,\)\.")
+      ),
+      dict(
+          testcase_name="2_dimensional_target",
+          features=np.ones([10, 5]),
+          target=np.zeros([5, 5]),
+          expected_message=(r"Incompatible shapes between features \(10, 5\) "
+                            r"and target \(5, 5\)\."))
+  ])
+  def test_compute_correlations_raises_value_error(self, features, target,
+                                                   expected_message):
+    feature_names = [f"feature_{i}" for i in range(features.shape[1])]
 
     with self.assertRaisesRegex(ValueError, expected_message):
-      preprocessing._compute_correlations(features, target)
+      preprocessing._compute_correlations(
+          features=features, target=target, feature_names=feature_names)
 
   @parameterized.named_parameters([
       dict(
           testcase_name="national_data",
-          features=_NATIONAL_DATA_FOR_CORRELATION_TESTS,
+          features=_NATIONAL_DATA_FOR_TESTS,
           target=_NATIONAL_TARGET_DATA,
           expected_correlations=_NATIONAL_CORRELATION_MATRICES),
       dict(
           testcase_name="geo_data",
-          features=_GEO_DATA_FOR_CORRELATION_TESTS,
+          features=_GEO_DATA_FOR_TESTS,
           target=_GEO_TARGET_DATA,
           expected_correlations=_GEO_CORRELATION_MATRICES),
       ])
@@ -665,35 +675,66 @@ class PreprocessingTest(parameterized.TestCase):
                                                   expected_correlations):
     media_data = jnp.array(features)[:, :2]
     extra_features = jnp.array(features)[:, 2:]
+    extra_features_transformer = {
+        "feature_2": "extra_feature_0",
+        "feature_3": "extra_feature_1",
+    }
+    updated_expected_correlations = [
+        x.rename(
+            index=extra_features_transformer,
+            columns=extra_features_transformer) for x in expected_correlations
+    ]
 
     correlations, _ = preprocessing.check_data_quality(
         media_data=media_data,
         target_data=jnp.array(target),
         extra_features_data=extra_features)
 
-    for i, correlation in enumerate(correlations):
+    for i, expected_correlation in enumerate(updated_expected_correlations):
       pd.testing.assert_frame_equal(
-          correlation, expected_correlations[i], atol=1e-3)
+          correlations[i], expected_correlation, atol=1e-3)
 
   @parameterized.named_parameters([
       dict(
           testcase_name="national_data",
-          features=_NATIONAL_DATA_FOR_CORRELATION_TESTS,
+          features=_NATIONAL_DATA_FOR_TESTS,
           expected_variances=_NATIONAL_VARIANCES,
       ),
       dict(
           testcase_name="geo_data",
-          features=_GEO_DATA_FOR_CORRELATION_TESTS,
+          features=_GEO_DATA_FOR_TESTS,
           expected_variances=_GEO_VARIANCES,
       )
   ])
   def test_compute_variances_returns_expected_values(self, features,
                                                      expected_variances):
     features = jnp.array(features)
+    feature_names = [f"feature_{i}" for i in range(features.shape[1])]
 
-    variances = preprocessing._compute_variances(features)
+    variances = preprocessing._compute_variances(
+        features=features, feature_names=feature_names)
 
     pd.testing.assert_frame_equal(variances, expected_variances, atol=1e-3)
+
+  def test_check_data_quality_raises_error_on_media_channel_name_mismatch(self):
+    expected_message = ("Number of channels in media_data does not match "
+                        "length of channel_names")
+    with self.assertRaisesRegex(ValueError, expected_message):
+      preprocessing.check_data_quality(
+          media_data=jnp.ones([3, 3]),
+          target_data=jnp.ones(3),
+          channel_names=["channel_one", "channel_two"])
+
+  def test_check_data_quality_raises_error_on_extra_feature_name_mismatch(self):
+    expected_message = ("Number of features in extra_features_data does not "
+                        "match length of extra_features")
+    with self.assertRaisesRegex(ValueError, expected_message):
+      preprocessing.check_data_quality(
+          media_data=jnp.ones([3, 3]),
+          target_data=jnp.ones(3),
+          extra_features_data=jnp.ones([3, 4]),
+          channel_names=["channel_one", "channel_two", "channel_three"],
+          extra_features_names=["extra_feature_0", "extra_feature_1"])
 
 
 if __name__ == "__main__":

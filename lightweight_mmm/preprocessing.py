@@ -14,7 +14,8 @@
 
 """Utilities for preprocessing dataset for training LightweightMMM."""
 
-from typing import Callable, List, Optional, Tuple, Union
+import copy
+from typing import Callable, List, Optional, Sequence, Tuple, Union
 
 import jax.numpy as jnp
 import pandas as pd
@@ -156,8 +157,11 @@ class CustomScaler(base.TransformerMixin):
     return self.divide_by * data / self.multiply_by
 
 
-def _compute_correlations(features: jnp.ndarray,
-                          target: jnp.ndarray) -> List[pd.DataFrame]:
+def _compute_correlations(
+    features: jnp.ndarray,
+    target: jnp.ndarray,
+    feature_names: List[str],
+    ) -> List[pd.DataFrame]:
   """Computes feature-feature and feature-target correlations.
 
   Helper function for DataQualityCheck.
@@ -165,6 +169,7 @@ def _compute_correlations(features: jnp.ndarray,
   Args:
     features: Features for media mix model (media and non-media variables).
     target: Target variable for media mix model.
+    feature_names: Names of media channels to be added to the output dataframes.
 
   Returns:
     List of dataframes containing Pearson correlation coefficients between each
@@ -185,10 +190,6 @@ def _compute_correlations(features: jnp.ndarray,
     raise ValueError(f"Incompatible shapes between features {features.shape}"
                      f" and target {target.shape}.")
 
-  number_of_features = features.shape[1]
-  column_names = [f"feature_{i}" for i in range(number_of_features)
-                 ] + ["target"]
-
   correlation_matrix_output = []
   for i_geo in range(number_of_geos):
 
@@ -207,15 +208,18 @@ def _compute_correlations(features: jnp.ndarray,
                                                        standard_deviations)
     correlation_matrix = pd.DataFrame(
         correlation_matrix,
-        columns=column_names,
-        index=column_names,
+        columns=feature_names + ["target"],
+        index=feature_names + ["target"],
         dtype=float)
     correlation_matrix_output.append(correlation_matrix)
 
   return correlation_matrix_output
 
 
-def _compute_variances(features: jnp.ndarray) -> pd.DataFrame:
+def _compute_variances(
+    features: jnp.ndarray,
+    feature_names: Sequence[str],
+) -> pd.DataFrame:
   """Computes variances over time for each feature.
 
   In general, higher variance is better since it creates more signal for the
@@ -225,12 +229,12 @@ def _compute_variances(features: jnp.ndarray) -> pd.DataFrame:
 
   Args:
     features: Features for media mix model (media and non-media variables).
+    feature_names: Names of media channels to be added to the output dataframe.
 
   Returns:
     Dataframe containing the variance over time for each feature. This dataframe
       contains one row per geo, and just a single row for national data.
   """
-  number_of_features = features.shape[1]
   number_of_geos = 1 if features.ndim == 2 else features.shape[2]
 
   variances_as_series = []
@@ -241,17 +245,18 @@ def _compute_variances(features: jnp.ndarray) -> pd.DataFrame:
         pd.DataFrame(data=features_for_this_geo).var(axis=0, ddof=0))
 
   variances = pd.DataFrame(variances_as_series)
-  variances.columns = [f"feature_{i}" for i in range(number_of_features)]
+  variances.columns = copy.copy(feature_names)
   variances.index = [f"geo_{i}" for i in range(number_of_geos)]
 
   return variances
 
-# TODO(): add feature_names arguments to this function
 
 def check_data_quality(
     media_data: jnp.ndarray,
     target_data: jnp.ndarray,
     extra_features_data: Optional[jnp.ndarray] = None,
+    channel_names: Optional[Sequence[str]] = None,
+    extra_features_names: Optional[Sequence[str]] = None,
     ) -> Tuple[List[pd.DataFrame], pd.DataFrame]:
   """Checks LMMM data quality, to be used before fitting a model.
 
@@ -268,6 +273,9 @@ def check_data_quality(
       features data, such as extra_features_train or extra_features in the
       example Colabs. This dataset should be scaled so that it has a similar
       order of magnitude to the media_data and target_data.
+    channel_names: Names of media channels to be added to the output dataframes.
+    extra_features_names: Names of extra features to be added to the output
+      dataframes.
 
   Returns:
     correlations: List of dataframes containing Pearson correlation coefficients
@@ -277,18 +285,47 @@ def check_data_quality(
     variances: Dataframe containing the variance over time for each feature.
       This dataframe contains one row per geo, and just a single row for
       national data.
+
+  Raises:
+    ValueError: If the number of channel_names does not match size of media_data
+      or the number of extra_features_names does not match size of
+      extra_features_data.
   """
+
+  if channel_names is not None and media_data.shape[1] != len(channel_names):
+    raise ValueError("Number of channels in media_data does not match length "
+                     "of channel_names")
+
+  if (extra_features_data is not None and
+      extra_features_names is not None and
+      extra_features_data.shape[1] != len(extra_features_names)):
+    raise ValueError("Number of features in extra_features_data does not match "
+                     "length of extra_features_names")
+
+  if channel_names is None:
+    all_feature_names = [f"feature_{i}" for i in range(media_data.shape[1])]
+  else:
+    all_feature_names = list(channel_names)
 
   if extra_features_data is not None:
     all_feature_data = jnp.concatenate([media_data, extra_features_data],
                                        axis=1)
+    if extra_features_names is None:
+      extra_feature_names = [
+          f"extra_feature_{i}" for i in range(extra_features_data.shape[1])
+      ]
+    all_feature_names += list(extra_feature_names)
   else:
     all_feature_data = jnp.array(media_data)
 
-  correlations = _compute_correlations(all_feature_data, target_data)
+  correlations = _compute_correlations(
+      features=all_feature_data,
+      target=target_data,
+      feature_names=all_feature_names)
   # TODO(): VIF analysis
 
-  variances = _compute_variances(all_feature_data)
+  variances = _compute_variances(
+      features=all_feature_data, feature_names=all_feature_names)
 
   # TODO(): spend fraction analysis
   # TODO(): clean up output list
