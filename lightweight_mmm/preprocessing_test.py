@@ -634,7 +634,7 @@ class PreprocessingTest(parameterized.TestCase):
 
     for i, expected_correlation in enumerate(expected_correlations):
       pd.testing.assert_frame_equal(
-          correlations[i], expected_correlation, atol=1e-3)
+          correlations[i], expected_correlation, atol=1e-3, check_dtype=False)
 
   @parameterized.named_parameters([
       dict(
@@ -692,7 +692,7 @@ class PreprocessingTest(parameterized.TestCase):
 
     for i, expected_correlation in enumerate(updated_expected_correlations):
       pd.testing.assert_frame_equal(
-          correlations[i], expected_correlation, atol=1e-3)
+          correlations[i], expected_correlation, atol=1e-3, check_dtype=False)
 
   @parameterized.named_parameters([
       dict(
@@ -714,7 +714,8 @@ class PreprocessingTest(parameterized.TestCase):
     variances = preprocessing._compute_variances(
         features=features, feature_names=feature_names)
 
-    pd.testing.assert_frame_equal(variances, expected_variances, atol=1e-3)
+    pd.testing.assert_frame_equal(
+        variances, expected_variances, atol=1e-3, check_dtype=False)
 
   def test_check_data_quality_raises_error_on_media_channel_name_mismatch(self):
     expected_message = ("Number of channels in media_data does not match "
