@@ -169,10 +169,10 @@ def carryover(data: jnp.ndarray,
   weights = ad_effect_retention_rate**((lags_arange - peak_effect_delay)**2)
   return convolve_func(data, weights, number_lags)
 
-
+@jax.jit
 def apply_exponent_safe(
     data: jnp.ndarray,
-    exponent: jnp.ndarray
+    exponent: jnp.ndarray,
     ) -> jnp.ndarray:
   """Applies an exponent to given data in a gradient safe way.
 
