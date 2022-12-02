@@ -251,13 +251,42 @@ def _compute_variances(
   return variances
 
 
+def _compute_spend_fractions(
+    cost_data: jnp.ndarray,
+    channel_names: Optional[Sequence[str]] = None,
+    output_column_name: str = "fraction of spend") -> pd.DataFrame:
+  """Computes fraction of total spend for each media channel.
+
+  Args:
+    cost_data: Spend (can be normalized or not) per channel.
+    channel_names: Names of media channels to be added to the output dataframe.
+    output_column_name: Name of the column in the output dataframe, denoting the
+      fraction of the total spend in each media channel.
+
+  Returns:
+    Dataframe containing fraction of the total spend in each channel.
+
+  Raises:
+    ValueError if any of the costs are zero or negative.
+  """
+  cost_df = pd.DataFrame(
+      cost_data, index=channel_names, columns=[output_column_name])
+
+  if (cost_df[output_column_name] <= 0).any():
+    raise ValueError("Values in cost_data must all be positive.")
+
+  normalized_cost_df = cost_df.div(cost_df.sum(axis=0), axis=1).round(4)
+  return normalized_cost_df
+
+
 def check_data_quality(
     media_data: jnp.ndarray,
     target_data: jnp.ndarray,
+    cost_data: jnp.ndarray,
     extra_features_data: Optional[jnp.ndarray] = None,
     channel_names: Optional[Sequence[str]] = None,
     extra_features_names: Optional[Sequence[str]] = None,
-    ) -> Tuple[List[pd.DataFrame], pd.DataFrame]:
+    ) -> Tuple[List[pd.DataFrame], pd.DataFrame, pd.DataFrame]:
   """Checks LMMM data quality, to be used before fitting a model.
 
   Args:
@@ -265,14 +294,18 @@ def check_data_quality(
       media_data_train or media_data in the example Collaboratory. This dataset
       should be scaled so that it has a similar order of magnitude to the
       target_data and extra_features_data (if applicable).
-    target_data: National-level or geo-level sales or revenue data, such
-      as target_train or target in the example Colabs. This dataset should be
-      scaled so that it has a similar order of magnitude to the
-      media_data and extra_features_data (if applicable).
-    extra_features_data: Optional national-level or geo-level extra
-      features data, such as extra_features_train or extra_features in the
-      example Colabs. This dataset should be scaled so that it has a similar
-      order of magnitude to the media_data and target_data.
+    target_data: National-level or geo-level sales or revenue data, such as
+      target_train or target in the example Colabs. This dataset should be
+      scaled so that it has a similar order of magnitude to the media_data and
+      extra_features_data (if applicable).
+    cost_data: National-level cost data, identified as "costs" in the example
+      Colabs, with one value per media channel denoting the total cost for that
+      channel over the time period covered by the media_data. The costs can be
+      scaled (mean-normalized) or not scaled.
+    extra_features_data: Optional national-level or geo-level extra features
+      data, such as extra_features_train or extra_features in the example
+      Colabs. This dataset should be scaled so that it has a similar order of
+      magnitude to the media_data and target_data.
     channel_names: Names of media channels to be added to the output dataframes.
     extra_features_names: Names of extra features to be added to the output
       dataframes.
@@ -285,27 +318,37 @@ def check_data_quality(
     variances: Dataframe containing the variance over time for each feature.
       This dataframe contains one row per geo, and just a single row for
       national data.
+    spend_fractions: Dataframe containing fraction of the total spend in each
+      channel.
 
   Raises:
     ValueError: If the number of channel_names does not match size of media_data
-      or the number of extra_features_names does not match size of
-      extra_features_data.
+      or cost_data, or if the number of extra_features_names does not match size
+      of extra_features_data.
   """
 
   if channel_names is not None and media_data.shape[1] != len(channel_names):
     raise ValueError("Number of channels in media_data does not match length "
-                     "of channel_names")
+                     "of channel_names.")
+
+  if channel_names is not None and len(cost_data) != len(channel_names):
+    raise ValueError("Number of channels in cost_data does not match length "
+                     "of channel_names.")
 
   if (extra_features_data is not None and
       extra_features_names is not None and
       extra_features_data.shape[1] != len(extra_features_names)):
     raise ValueError("Number of features in extra_features_data does not match "
-                     "length of extra_features_names")
+                     "length of extra_features_names.")
 
   if channel_names is None:
     all_feature_names = [f"feature_{i}" for i in range(media_data.shape[1])]
   else:
     all_feature_names = list(channel_names)
+
+  # Spend fractions are computed for the media channels only, so we run this
+  # before concatentating the extra_features_names.
+  spend_fractions = _compute_spend_fractions(cost_data, all_feature_names)
 
   if extra_features_data is not None:
     all_feature_data = jnp.concatenate([media_data, extra_features_data],
@@ -327,6 +370,5 @@ def check_data_quality(
   variances = _compute_variances(
       features=all_feature_data, feature_names=all_feature_names)
 
-  # TODO(): spend fraction analysis
   # TODO(): clean up output list
-  return correlations, variances
+  return correlations, variances, spend_fractions

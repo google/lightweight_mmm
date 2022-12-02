@@ -674,6 +674,7 @@ class PreprocessingTest(parameterized.TestCase):
   def test_check_data_quality_with_extra_features(self, features, target,
                                                   expected_correlations):
     media_data = jnp.array(features)[:, :2]
+    costs = np.ones(media_data.shape[1])
     extra_features = jnp.array(features)[:, 2:]
     extra_features_transformer = {
         "feature_2": "extra_feature_0",
@@ -685,9 +686,10 @@ class PreprocessingTest(parameterized.TestCase):
             columns=extra_features_transformer) for x in expected_correlations
     ]
 
-    correlations, _ = preprocessing.check_data_quality(
+    correlations, _, _ = preprocessing.check_data_quality(
         media_data=media_data,
         target_data=jnp.array(target),
+        cost_data=costs,
         extra_features_data=extra_features)
 
     for i, expected_correlation in enumerate(updated_expected_correlations):
@@ -724,7 +726,8 @@ class PreprocessingTest(parameterized.TestCase):
       preprocessing.check_data_quality(
           media_data=jnp.ones([3, 3]),
           target_data=jnp.ones(3),
-          channel_names=["channel_one", "channel_two"])
+          channel_names=["channel_one", "channel_two"],
+          cost_data=jnp.ones(3))
 
   def test_check_data_quality_raises_error_on_extra_feature_name_mismatch(self):
     expected_message = ("Number of features in extra_features_data does not "
@@ -733,9 +736,53 @@ class PreprocessingTest(parameterized.TestCase):
       preprocessing.check_data_quality(
           media_data=jnp.ones([3, 3]),
           target_data=jnp.ones(3),
+          cost_data=jnp.ones(3),
           extra_features_data=jnp.ones([3, 4]),
           channel_names=["channel_one", "channel_two", "channel_three"],
           extra_features_names=["extra_feature_0", "extra_feature_1"])
+
+  def test_check_data_quality_raises_error_on_cost_data_mismatch(self):
+    expected_message = ("Number of channels in cost_data does not match "
+                        "length of channel_names")
+    with self.assertRaisesRegex(ValueError, expected_message):
+      preprocessing.check_data_quality(
+          media_data=jnp.ones([3, 3]),
+          target_data=jnp.ones(3),
+          channel_names=["channel_one", "channel_two", "channel_three"],
+          cost_data=jnp.ones(5))
+
+  @parameterized.product(
+      (dict(
+          costs=np.arange(1, 10),
+          expected_spend_fractions=np.arange(1, 10) / np.arange(1, 10).sum()),
+       dict(costs=np.ones(5), expected_spend_fractions=np.ones(5) / 5.)),
+      (dict(channel_names=None),
+       dict(channel_names=[f"channel_{x}" for x in "ABCDEFGHIJ"])))
+  def test_compute_spend_fraction_results_are_correct(self, costs,
+                                                      expected_spend_fractions,
+                                                      channel_names):
+    if channel_names is not None:
+      channel_names = channel_names[:len(costs)]
+    expected_output = pd.DataFrame(
+        expected_spend_fractions,
+        index=channel_names,
+        columns=["fraction of spend"])
+
+    spend_fractions = preprocessing._compute_spend_fractions(
+        costs, channel_names)
+
+    pd.testing.assert_frame_equal(spend_fractions, expected_output, atol=1e-3)
+
+  @parameterized.named_parameters([
+      dict(testcase_name="single_zero", costs=np.arange(10)),
+      dict(testcase_name="all_zeros", costs=np.zeros(10)),
+      dict(testcase_name="negative_number_and_zero", costs=np.arange(-1, 10)),
+  ])
+  def test_compute_spend_fraction_raises_error_on_non_positive_costs(
+      self, costs):
+    expected_message = ("Values in cost_data must all be positive")
+    with self.assertRaisesRegex(ValueError, expected_message):
+      preprocessing._compute_spend_fractions(costs)
 
 
 if __name__ == "__main__":
