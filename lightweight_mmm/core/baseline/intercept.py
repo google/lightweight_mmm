@@ -31,7 +31,6 @@ def simple_intercept(
                            dist.Distribution] = immutabledict.immutabledict(),
 ) -> jnp.ndarray:
   """Calculates a national or geo incercept.
-
   Note that this intercept is constant over time.
 
   Args:
