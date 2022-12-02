@@ -14,7 +14,7 @@
 
 """Module for modeling the intercept."""
 
-from collections.abc import Mapping
+from typing import Mapping
 
 import immutabledict
 import jax.numpy as jnp
