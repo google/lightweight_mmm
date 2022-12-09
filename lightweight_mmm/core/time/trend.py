@@ -14,6 +14,7 @@
 
 """Core and modelling functions for trend."""
 
+import functools
 from typing import Mapping
 
 import jax
@@ -74,3 +75,49 @@ def trend_with_exponent(
     linear_trend = jnp.expand_dims(linear_trend, axis=-1)
   return _trend_with_exponent(
       coef_trend=coef_trend, trend=linear_trend, expo_trend=expo_trend)
+
+
+@functools.partial(jax.jit, static_argnames=("number_periods",))
+def _dynamic_trend(
+    number_periods: int,
+    random_walk_level: jnp.ndarray,
+    random_walk_slope: jnp.ndarray,
+    initial_level: jnp.ndarray,
+    initial_slope: jnp.ndarray,
+    variance_level: jnp.ndarray,
+    variance_slope: jnp.ndarray,
+) -> jnp.ndarray:
+  """Calculates dynamic trend using local linear trend method.
+
+  More details about this function can be found in:
+  https://storage.googleapis.com/pub-tools-public-publication-data/pdf/41854.pdf
+
+  Args:
+    number_periods: Number of time periods in the data.
+    random_walk_level: Random walk of level from sample.
+    random_walk_slope: Random walk of slope from sample.
+    initial_level: The initial value for level in local linear trend model.
+    initial_slope: The initial value for slope in local linear trend model.
+    variance_level: The variance of the expected increase in level between time.
+    variance_slope: The variance of the expected increase in slope between time.
+
+  Returns:
+    The dynamic trend values for the given data with the given parameters.
+  """
+  # Simulate gaussian random walk of level with initial level.
+  random_level = variance_level * random_walk_level 
+  random_level_with_initial_level = jnp.concatenate(
+      [jnp.array([random_level[0] + initial_level]), random_level[1:]])
+  level_trend_t = jnp.cumsum(random_level_with_initial_level, axis=0)
+  # Simulate gaussian random walk of slope with initial slope.
+  random_slope = variance_slope * random_walk_slope
+  random_slope_with_initial_slope = jnp.concatenate(
+      [jnp.array([random_slope[0] + initial_slope]), random_slope[1:]])
+  slope_trend_t = jnp.cumsum(random_slope_with_initial_slope, axis=0)
+  # Accumulate sum of slope series to address latent variable slope in function
+  # level_t = level_t-1 + slope_t-1.
+  initial_zero_shape = [(1, 0)] if slope_trend_t.ndim == 1 else [(1, 0), (0, 0)]
+  slope_trend_cumsum = jnp.pad(
+      jnp.cumsum(slope_trend_t, axis=0)[:number_periods - 1],
+      initial_zero_shape, mode="constant", constant_values=0)
+  return level_trend_t + slope_trend_cumsum

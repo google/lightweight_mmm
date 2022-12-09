@@ -18,6 +18,7 @@ from absl.testing import absltest
 from absl.testing import parameterized
 import jax
 import jax.numpy as jnp
+import numpy as np
 import numpyro
 from numpyro import distributions as dist
 from numpyro import handlers
@@ -120,6 +121,72 @@ class TrendTest(parameterized.TestCase):
     self.assertEqual(used_distribution.concentration0, expected_value2)
     self.assertEqual(used_distribution.concentration1, expected_value1)
 
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="dynamic_trend_national_shape",
+          number_periods=100,
+          initial_level_shape=(),
+          initial_slope_shape=(),
+          variance_level_shape=(),
+          variance_slope_shape=(),
+      ),
+      dict(
+          testcase_name="dynamic_trend_geo_shape",
+          number_periods=100,
+          initial_level_shape=(2,),
+          initial_slope_shape=(2,),
+          variance_level_shape=(2,),
+          variance_slope_shape=(2,),
+      ),
+  ])
+  def test_core_dynamic_trend_produces_correct_shape(
+      self, number_periods, initial_level_shape, initial_slope_shape,
+      variance_level_shape, variance_slope_shape):
+    initial_level = jnp.ones(initial_level_shape)
+    initial_slope = jnp.ones(initial_slope_shape)
+    variance_level = jnp.ones(variance_level_shape)
+    variance_slope = jnp.ones(variance_slope_shape)
+    random_walk_level = jnp.arange(number_periods)
+    random_walk_slope = jnp.arange(number_periods)
+    if initial_level.ndim == 1:  # For geo model's case
+      random_walk_level = jnp.expand_dims(random_walk_level, axis=-1)
+      random_walk_slope = jnp.expand_dims(random_walk_slope, axis=-1)
+
+    dynamic_trend_values = trend._dynamic_trend(
+        number_periods=number_periods,
+        random_walk_level=random_walk_level,
+        random_walk_slope=random_walk_slope,
+        initial_level=initial_level,
+        initial_slope=initial_slope,
+        variance_level=variance_level,
+        variance_slope=variance_slope,
+    )
+
+    self.assertEqual(dynamic_trend_values.shape,
+                     (number_periods, *initial_level_shape))
+
+  def test_core_dynamic_trend_produces_correct_value(self):
+    number_periods = 5
+    initial_level = jnp.ones(())
+    initial_slope = jnp.ones(())
+    variance_level = jnp.ones(())
+    variance_slope = jnp.ones(())
+    random_walk_level = jnp.arange(number_periods)
+    random_walk_slope = jnp.arange(number_periods)
+    dynamic_trend_expected_value = jnp.array([1, 3, 7, 14, 25])
+
+    dynamic_trend_values = trend._dynamic_trend(
+        number_periods=number_periods,
+        random_walk_level=random_walk_level,
+        random_walk_slope=random_walk_slope,
+        initial_level=initial_level,
+        initial_slope=initial_slope,
+        variance_level=variance_level,
+        variance_slope=variance_slope,
+    )
+
+    np.testing.assert_array_equal(x=dynamic_trend_values,
+                                  y=dynamic_trend_expected_value)
 
 if __name__ == "__main__":
   absltest.main()
