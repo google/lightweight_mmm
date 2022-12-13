@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 
 from lightweight_mmm import preprocessing
+from lightweight_mmm.core import core_utils
 
 
 _GEO_DATA_FOR_TESTS = [[[0.1, 0.5], [0.2, 0.4], [0.3, 0.7]],
@@ -65,14 +66,24 @@ _GEO_CORRELATION_MATRICES = [
         dtype=float)
 ]
 _NATIONAL_VARIANCES = pd.DataFrame(
-    data=[[2.09, 4.44, 4.61, 0]],
-    columns=["feature_0", "feature_1", "feature_2", "feature_3"],
-    index=["geo_0"],
+    data=[2.09, 4.44, 4.61, 0],
+    index=["feature_0", "feature_1", "feature_2", "feature_3"],
+    columns=["geo_0"],
     dtype=float)
 _GEO_VARIANCES = pd.DataFrame(
-    data=[[0.02, 0.068, 0.0136], [0, 0.0176, 0.0896]],
-    columns=["feature_0", "feature_1", "feature_2"],
-    index=["geo_0", "geo_1"],
+    data=[[0.02, 0], [0.068, 0.0176], [0.0136, 0.0896]],
+    index=["feature_0", "feature_1", "feature_2"],
+    columns=["geo_0", "geo_1"],
+    dtype=float)
+_NATIONAL_VIFS = pd.DataFrame(
+    data=[4.0491, 10.3485, 4.9505, 13.7372],
+    index=["feature_0", "feature_1", "feature_2", "feature_3"],
+    columns=["geo_0"],
+    dtype=float)
+_GEO_VIFS = pd.DataFrame(
+    data=[[22.1429, 36.8863], [48.5715, 1.2734], [38.8572, 1.2734]],
+    index=["feature_0", "feature_1", "feature_2"],
+    columns=["geo_0", "geo_1"],
     dtype=float)
 
 
@@ -686,7 +697,7 @@ class PreprocessingTest(parameterized.TestCase):
             columns=extra_features_transformer) for x in expected_correlations
     ]
 
-    correlations, _, _ = preprocessing.check_data_quality(
+    correlations, _, _, _ = preprocessing.check_data_quality(
         media_data=media_data,
         target_data=jnp.array(target),
         cost_data=costs,
@@ -712,9 +723,10 @@ class PreprocessingTest(parameterized.TestCase):
                                                      expected_variances):
     features = jnp.array(features)
     feature_names = [f"feature_{i}" for i in range(features.shape[1])]
+    geo_names = ["geo_0", "geo_1"] if features.ndim == 3 else ["geo_0"]
 
     variances = preprocessing._compute_variances(
-        features=features, feature_names=feature_names)
+        features=features, feature_names=feature_names, geo_names=geo_names)
 
     pd.testing.assert_frame_equal(
         variances, expected_variances, atol=1e-3, check_dtype=False)
@@ -784,6 +796,97 @@ class PreprocessingTest(parameterized.TestCase):
     with self.assertRaisesRegex(ValueError, expected_message):
       preprocessing._compute_spend_fractions(costs)
 
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="national_data",
+          features=_NATIONAL_DATA_FOR_TESTS,
+          expected_vifs=_NATIONAL_VIFS,
+      ),
+      dict(
+          testcase_name="geo_data",
+          features=_GEO_DATA_FOR_TESTS,
+          expected_vifs=_GEO_VIFS,
+      )
+  ])
+  def test_compute_vifs_returns_expected_values(self, features, expected_vifs):
+    features = jnp.array(features)
+    feature_names = [f"feature_{i}" for i in range(features.shape[1])]
+    geo_names = ["geo_0", "geo_1"] if features.ndim == 3 else ["geo_0"]
+
+    vifs = preprocessing._compute_variance_inflation_factors(
+        features=features, feature_names=feature_names, geo_names=geo_names)
+
+    pd.testing.assert_frame_equal(
+        vifs, expected_vifs, atol=1e-3, check_dtype=False)
+
+  def test_extreme_values_for_compute_vifs(self):
+    df = pd.DataFrame(
+        data={
+            "column_A": np.arange(25),
+            "column_B": np.arange(25)**0.5 + 2,
+            "column_C": np.arange(25)**0.25 - 5,
+            "all_ones": np.ones(25),
+            "all_zeros": np.zeros(25)
+        })
+    df["linear_transform_of_column_A"] = 30 - df["column_A"]
+    df["copy_of_column_B"] = df["column_B"]
+
+    vifs = preprocessing._compute_variance_inflation_factors(
+        features=df.values, feature_names=df.columns, geo_names=["a_geo"])
+    expected_vifs = pd.DataFrame(
+        data=[np.inf, np.inf, 57.8253, 0, np.nan, np.inf, np.inf],
+        columns=["a_geo"],
+        index=[
+            "column_A", "column_B", "column_C", "all_ones", "all_zeros",
+            "linear_transform_of_column_A", "copy_of_column_B"
+        ])
+
+    pd.testing.assert_frame_equal(
+        vifs, expected_vifs, atol=1e-3, check_dtype=False)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="national_data",
+          features=_NATIONAL_DATA_FOR_TESTS,
+          geo_names=["geo_0", "geo_1"],
+      ),
+      dict(
+          testcase_name="geo_data",
+          features=_GEO_DATA_FOR_TESTS,
+          geo_names=["geo_0"],
+      )
+  ])
+  def test_compute_vifs_raises_error_for_incorrect_number_of_geo_names(
+      self, features, geo_names):
+    features = jnp.array(features)
+    feature_names = [f"feature_{i}" for i in range(features.shape[1])]
+    expected_message = ("The number of geos in features does not match the "
+                        "length of geo_names")
+    with self.assertRaisesRegex(ValueError, expected_message):
+      preprocessing._compute_variance_inflation_factors(
+          features=features, feature_names=feature_names, geo_names=geo_names)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="national_data",
+          features=_NATIONAL_DATA_FOR_TESTS,
+          geo_names=["geo_0", "geo_1"],
+      ),
+      dict(
+          testcase_name="geo_data",
+          features=_GEO_DATA_FOR_TESTS,
+          geo_names=["geo_0"],
+      )
+  ])
+  def test_compute_variances_raises_error_for_incorrect_number_of_geo_names(
+      self, features, geo_names):
+    features = jnp.array(features)
+    feature_names = [f"feature_{i}" for i in range(features.shape[1])]
+    expected_message = ("The number of geos in features does not match the "
+                        "length of geo_names")
+    with self.assertRaisesRegex(ValueError, expected_message):
+      preprocessing._compute_variances(
+          features=features, feature_names=feature_names, geo_names=geo_names)
 
 if __name__ == "__main__":
   absltest.main()

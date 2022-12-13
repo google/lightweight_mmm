@@ -21,6 +21,9 @@ import jax.numpy as jnp
 import pandas as pd
 from sklearn import base
 
+from google3.third_party.gps_building_blocks.py.ml.preprocessing import vif
+from lightweight_mmm.core import core_utils
+
 
 class NotFittedScalerError(Exception):
   pass
@@ -181,15 +184,12 @@ def _compute_correlations(
     ValueError: If features and target have incompatible shapes (e.g. one is
       geo-level and the other national-level).
   """
-
-  if features.ndim == 2 and target.ndim == 1:
-    number_of_geos = 1
-  elif features.ndim == 3 and target.ndim == 2:
-    number_of_geos = features.shape[2]
-  else:
+  if not ((features.ndim == 2 and target.ndim == 1) or
+          (features.ndim == 3 and target.ndim == 2)):
     raise ValueError(f"Incompatible shapes between features {features.shape}"
                      f" and target {target.shape}.")
 
+  number_of_geos = core_utils.get_number_geos(features)
   correlation_matrix_output = []
   for i_geo in range(number_of_geos):
 
@@ -219,6 +219,7 @@ def _compute_correlations(
 def _compute_variances(
     features: jnp.ndarray,
     feature_names: Sequence[str],
+    geo_names: Sequence[str],
 ) -> pd.DataFrame:
   """Computes variances over time for each feature.
 
@@ -230,12 +231,21 @@ def _compute_variances(
   Args:
     features: Features for media mix model (media and non-media variables).
     feature_names: Names of media channels to be added to the output dataframe.
+    geo_names: Names of geos to be added to the output dataframes.
 
   Returns:
     Dataframe containing the variance over time for each feature. This dataframe
       contains one row per geo, and just a single row for national data.
+
+  Raises:
+    ValueError: If the number of geos in features does not match the number of
+    supplied geo_names.
   """
-  number_of_geos = 1 if features.ndim == 2 else features.shape[2]
+  number_of_geos = core_utils.get_number_geos(features)
+
+  if len(geo_names) != number_of_geos:
+    raise ValueError("The number of geos in features does not match the length "
+                     "of geo_names")
 
   variances_as_series = []
   for i_geo in range(number_of_geos):
@@ -244,9 +254,9 @@ def _compute_variances(
     variances_as_series.append(
         pd.DataFrame(data=features_for_this_geo).var(axis=0, ddof=0))
 
-  variances = pd.DataFrame(variances_as_series)
-  variances.columns = copy.copy(feature_names)
-  variances.index = [f"geo_{i}" for i in range(number_of_geos)]
+  variances = pd.concat(variances_as_series, axis=1)
+  variances.columns = geo_names
+  variances.index = copy.copy(feature_names)
 
   return variances
 
@@ -279,6 +289,52 @@ def _compute_spend_fractions(
   return normalized_cost_df
 
 
+def _compute_variance_inflation_factors(
+    features: jnp.ndarray, feature_names: Sequence[str],
+    geo_names: Sequence[str]) -> pd.DataFrame:
+  """Computes variance inflation factors for all features.
+
+  Helper function for DataQualityCheck.
+
+  Args:
+    features: Features for media mix model (media and non-media variables).
+    feature_names: Names of media channels to be added to the output dataframe.
+    geo_names: Names of geos to be added to the output dataframes.
+
+  Returns:
+    Dataframe containing variance inflation factors for each feature. For
+      national-level data the dataframe contains just one column, and for
+      geo-level data the list contains one column for each geo.
+
+  Raises:
+    ValueError: If the number of geos in features does not match the number of
+    supplied geo_names.
+  """
+  number_of_geos = core_utils.get_number_geos(features)
+
+  if len(geo_names) != number_of_geos:
+    raise ValueError("The number of geos in features does not match the length "
+                     "of geo_names")
+
+  vifs_for_each_geo = []
+  for i_geo in range(number_of_geos):
+    features_for_this_geo = features[...,
+                                     i_geo] if number_of_geos > 1 else features
+    features_for_this_geo = pd.DataFrame(
+        data=features_for_this_geo, dtype=float)
+    vifs_for_this_geo = vif.calculate_vif(
+        data=features_for_this_geo,
+        sort=False,
+        use_correlation_matrix_inversion=False)
+    vifs_for_each_geo.append(vifs_for_this_geo.VIF)
+
+  vif_df = pd.concat(vifs_for_each_geo, axis=1)
+  vif_df.columns = geo_names
+  vif_df.index = copy.copy(feature_names)
+
+  return vif_df
+
+
 def check_data_quality(
     media_data: jnp.ndarray,
     target_data: jnp.ndarray,
@@ -286,7 +342,8 @@ def check_data_quality(
     extra_features_data: Optional[jnp.ndarray] = None,
     channel_names: Optional[Sequence[str]] = None,
     extra_features_names: Optional[Sequence[str]] = None,
-    ) -> Tuple[List[pd.DataFrame], pd.DataFrame, pd.DataFrame]:
+    geo_names: Optional[Sequence[str]] = None,
+    ) -> Tuple[List[pd.DataFrame], pd.DataFrame, pd.DataFrame, pd.DataFrame]:
   """Checks LMMM data quality, to be used before fitting a model.
 
   Args:
@@ -309,17 +366,21 @@ def check_data_quality(
     channel_names: Names of media channels to be added to the output dataframes.
     extra_features_names: Names of extra features to be added to the output
       dataframes.
+    geo_names: Names of geos to be added to the output dataframes.
 
   Returns:
     correlations: List of dataframes containing Pearson correlation coefficients
       between each feature, as well as between features and the target variable.
       For national-level data the list contains just one dataframe, and for
       geo-level data the list contains one dataframe for each geo.
-    variances: Dataframe containing the variance over time for each feature.
-      This dataframe contains one row per geo, and just a single row for
-      national data.
+    variances: Dataframe containing the variance over time for each feature. For
+      national-level data the dataframe contains just one column, and for
+      geo-level data the list contains one column for each geo.
     spend_fractions: Dataframe containing fraction of the total spend in each
       channel.
+    variance_inflation_factors: Dataframes containing variance inflation factors
+      for each feature. For national-level data the dataframe contains just one
+      column, and for geo-level data the list contains one column for each geo.
 
   Raises:
     ValueError: If the number of channel_names does not match size of media_data
@@ -346,6 +407,11 @@ def check_data_quality(
   else:
     all_feature_names = list(channel_names)
 
+  if geo_names is None:
+    geo_names = [
+        f"geo_{i}" for i in range(core_utils.get_number_geos(media_data))
+    ]
+
   # Spend fractions are computed for the media channels only, so we run this
   # before concatentating the extra_features_names.
   spend_fractions = _compute_spend_fractions(cost_data, all_feature_names)
@@ -365,10 +431,16 @@ def check_data_quality(
       features=all_feature_data,
       target=target_data,
       feature_names=all_feature_names)
-  # TODO(): VIF analysis
+
+  variance_inflation_factors = _compute_variance_inflation_factors(
+      features=all_feature_data,
+      feature_names=all_feature_names,
+      geo_names=geo_names)
 
   variances = _compute_variances(
-      features=all_feature_data, feature_names=all_feature_names)
+      features=all_feature_data,
+      feature_names=all_feature_names,
+      geo_names=geo_names)
 
   # TODO(): clean up output list
-  return correlations, variances, spend_fractions
+  return correlations, variances, spend_fractions, variance_inflation_factors
