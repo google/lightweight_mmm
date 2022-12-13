@@ -402,6 +402,12 @@ class PlotTest(parameterized.TestCase):
           optimal_buget_allocation=optimal_buget_allocation,
           previous_budget_allocation=previous_budget_allocation)
 
+  def test_create_media_baseline_contribution_df_raise_notfittedmodelerror(
+      self):
+    with self.assertRaises(lightweight_mmm.NotFittedModelError):
+      plot.create_media_baseline_contribution_df(
+          media_mix_model=getattr(self, "not_fitted_mmm"))
+
   @parameterized.named_parameters([
       dict(testcase_name="national", media_mix_model="national_mmm"),
       dict(testcase_name="geo", media_mix_model="geo_mmm")
