@@ -21,7 +21,8 @@ import jax.numpy as jnp
 import pandas as pd
 from sklearn import base
 
-from google3.third_party.gps_building_blocks.py.ml.preprocessing import vif
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+from statsmodels.tools.tools import add_constant
 from lightweight_mmm.core import core_utils
 
 
@@ -320,15 +321,18 @@ def _compute_variance_inflation_factors(
   for i_geo in range(number_of_geos):
     features_for_this_geo = features[...,
                                      i_geo] if number_of_geos > 1 else features
-    features_for_this_geo = pd.DataFrame(
-        data=features_for_this_geo, dtype=float)
-    vifs_for_this_geo = vif.calculate_vif(
-        data=features_for_this_geo,
-        sort=False,
-        use_correlation_matrix_inversion=False)
-    vifs_for_each_geo.append(vifs_for_this_geo.VIF)
+    features_for_this_geo = add_constant(
+        pd.DataFrame(features_for_this_geo, dtype=float), has_constant="skip")
 
-  vif_df = pd.concat(vifs_for_each_geo, axis=1)
+    vifs_for_this_geo = []
+    for i, feature in enumerate(features_for_this_geo.columns):
+      if feature != "const":
+        vifs_for_this_geo.append(
+            variance_inflation_factor(features_for_this_geo.values, i))
+
+    vifs_for_each_geo.append(vifs_for_this_geo)
+
+  vif_df = pd.DataFrame(data=zip(*vifs_for_each_geo), dtype=float)
   vif_df.columns = geo_names
   vif_df.index = copy.copy(feature_names)
 
