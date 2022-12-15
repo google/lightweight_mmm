@@ -1256,7 +1256,7 @@ def plot_prior_and_posterior(
 
   fig = plt.figure(figsize=fig_size, constrained_layout=True)
   gridspec_fig = matplotlib.gridspec.GridSpec(
-      nrows=number_of_subplots, ncols=1, figure=fig, hspace=10)
+      nrows=number_of_subplots, ncols=1, figure=fig, hspace=0.1)
 
   default_priors = {
       **models._get_default_priors(),
