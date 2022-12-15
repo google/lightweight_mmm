@@ -15,7 +15,6 @@
 absl-py
 arviz==0.11.2
 dataclasses;python_version<'3.7'
-gps-building-blocks>=1.88.0
 immutabledict>=2.0.0
 jax>=0.3.18
 jaxlib>=0.3.18
