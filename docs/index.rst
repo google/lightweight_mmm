@@ -1,4 +1,4 @@
-:github_url: https://github.com/google/lightweight_mmm/tree/master/docs
+:github_url: https://github.com/google/lightweight_mmm/tree/main/docs
 
 LightweightMMM Documentation
 ===================
@@ -51,7 +51,7 @@ Contribute
 ----------
 
 - Issue tracker: https://github.com/google/lightweight_mmm/issues
-- Source code: https://github.com/google/lightweight_mmm/tree/master
+- Source code: https://github.com/google/lightweight_mmm/tree/main
 
 Support
 -------
