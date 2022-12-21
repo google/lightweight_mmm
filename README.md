@@ -5,7 +5,7 @@
 ##### This is not an official Google product.
 
 [![PyPI](https://img.shields.io/pypi/v/lightweight_mmm?logo=pypi&logoColor=white&style=flat-square)](https://pypi.org/project/lightweight_mmm/)
-[![GitHub Workflow CI](https://img.shields.io/github/workflow/status/google/lightweight_mmm/ci?label=pytest&logo=python&logoColor=white&style=flat-square)](https://github.com/google/lightweight_mmm/actions/workflows/ci.yaml)
+[![GitHub Workflow CI](https://img.shields.io/github/workflow/status/google/lightweight_mmm/ci?label=pytest&logo=python&logoColor=white&style=flat-square)](https://github.com/google/lightweight_mmm/actions/workflows/ci.yaml?branch=main)
 [![Read the Docs](https://img.shields.io/readthedocs/lightweight_mmm?label=ReadTheDocs&logo=readthedocs&logoColor=white&style=flat-square)](https://lightweight-mmm.readthedocs.io/en/latest/)
 [![Downloads](https://pepy.tech/badge/lightweight-mmm)](https://pepy.tech/project/lightweight-mmm)
 
