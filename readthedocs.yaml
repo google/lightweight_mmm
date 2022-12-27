@@ -15,12 +15,14 @@
 # Read the Docs configuration file
 # See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
 version: 2
+build:
+  tools:
+    python: "3.10"
 sphinx:
   builder: html
   configuration: docs/conf.py
   fail_on_warning: false
 python:
-  version: 3.10
   install:
     - requirements: requirements/requirements_docs.txt
     - requirements: requirements/requirements.txt
