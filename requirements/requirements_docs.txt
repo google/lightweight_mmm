@@ -22,7 +22,7 @@ ipykernel==5.3.4
 pandoc==1.0.2
 myst_nb==0.13.1
 docutils==0.16
-matplotlib==3.5.0
+matplotlib==3.6.1
 nbsphinx
 sphinx_markdown_tables
 ipython_genutils

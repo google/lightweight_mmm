@@ -20,7 +20,7 @@ sphinx:
   configuration: docs/conf.py
   fail_on_warning: false
 python:
-  version: 3.7
+  version: 3.10
   install:
     - requirements: requirements/requirements_docs.txt
     - requirements: requirements/requirements.txt
