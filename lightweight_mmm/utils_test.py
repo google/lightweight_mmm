@@ -26,15 +26,15 @@ from lightweight_mmm import lightweight_mmm
 from lightweight_mmm import utils
 
 _MEDIA_DATAFRAME = pd.DataFrame(
-    data=[["2020-01-01", "geo1", 10, 2, 3, 2, 1, 1],
-          ["2020-01-01", "geo2", 40, 6, 2, 2, 1, 0],
-          ["2020-01-01", "geo3", 33, 7, 5, 2, 1, 0],
-          ["2020-01-08", "geo1", 21, 1, 7, 2, 1, 1],
-          ["2020-01-08", "geo2", 27, 3, 9, 2, 1, 1],
-          ["2020-01-08", "geo3", 20, 5, 3, 2, 1, 1]],
+    data=[["2020-01-01", "geo1", 10, 2, 3, 2, 1, 1, 1],
+          ["2020-01-01", "geo2", 40, 6, 2, 2, 1, 0, 1],
+          ["2020-01-01", "geo3", 33, 7, 5, 2, 1, 0, 1],
+          ["2020-01-08", "geo1", 21, 1, 7, 2, 1, 1, 1],
+          ["2020-01-08", "geo2", 27, 3, 9, 2, 1, 1, 1],
+          ["2020-01-08", "geo3", 20, 5, 3, 2, 1, 1, 1]],
     columns=[
         "date", "geo", "kpi", "channel1_imp", "channel2_imp",
-        "channel1_cost", "channel2_cost", "promo_1"
+        "channel1_cost", "channel2_cost", "promo_1", "promo_2"
     ])
 
 
@@ -121,38 +121,48 @@ class UtilsTest(parameterized.TestCase):
 
   @parameterized.named_parameters([
       dict(
-          testcase_name="array_shape_without_cost_feature",
+          testcase_name="one_geo_in_geo_feature",
+          dataframe=_MEDIA_DATAFRAME[_MEDIA_DATAFRAME["geo"] == "geo1"]),
+      dict(
+          testcase_name="unequal_weeks_in_each_geo",
+          dataframe=_MEDIA_DATAFRAME.iloc[0:5, :])
+  ])
+  def test_dataframe_to_jax_wrong_params_raises_valueerror(self, dataframe):
+    with self.assertRaises(ValueError):
+      utils.dataframe_to_jax(
+          dataframe=dataframe,
           media_features=["channel1_imp", "channel2_imp"],
           extra_features=["promo_1"],
           geo_feature="geo",
           date_feature="date",
           target="kpi",
+          cost_features=None)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="array_shape_without_cost_feature_regional_model",
           cost_features=None),
       dict(
-          testcase_name="array_shape_with_cost_feature",
-          media_features=["channel1_imp", "channel2_imp"],
-          extra_features=["promo_1"],
-          geo_feature="geo",
-          date_feature="date",
-          target="kpi",
+          testcase_name="array_shape_with_cost_feature_regional_model",
           cost_features=["channel1_cost", "channel2_cost"])
   ])
-  def test_dataframe_to_jax_produce_correct_shape_with_or_without_cost(
-      self, media_features, extra_features, geo_feature, date_feature, target,
-      cost_features):
+  def test_dataframe_to_jax_produce_correct_shape_with_or_without_cost_regional(
+      self, cost_features):
+    n_weeks = _MEDIA_DATAFRAME["date"].nunique()
+    n_geos = _MEDIA_DATAFRAME["geo"].nunique()
+    n_media_channels = len(["channel1_imp", "channel2_imp"])
+    n_extra_features = len(["promo_1", "promo_2"])
+
     media_data, extra_features_data, target_data, costs_data = utils.dataframe_to_jax(
         dataframe=_MEDIA_DATAFRAME,
-        media_features=media_features,
-        extra_features=extra_features,
-        geo_feature=geo_feature,
-        date_feature=date_feature,
-        target=target,
+        media_features=["channel1_imp", "channel2_imp"],
+        extra_features=["promo_1", "promo_2"],
+        geo_feature="geo",
+        date_feature="date",
+        target="kpi",
         cost_features=cost_features
         )
-    n_weeks = _MEDIA_DATAFRAME[date_feature].nunique()
-    n_geos = _MEDIA_DATAFRAME[geo_feature].nunique()
-    n_media_channels = len(media_features)
-    n_extra_features = len(extra_features)
+
     self.assertEqual(media_data.shape, (n_weeks, n_media_channels, n_geos))
     self.assertEqual(extra_features_data.shape,
                      (n_weeks, n_extra_features, n_geos))
@@ -161,53 +171,137 @@ class UtilsTest(parameterized.TestCase):
 
   @parameterized.named_parameters([
       dict(
-          testcase_name="array_value_without_cost_feature",
-          media_features=["channel1_imp", "channel2_imp"],
-          extra_features=["promo_1"],
-          geo_feature="geo",
-          date_feature="date",
-          target="kpi",
-          cost_features=None,
-          test_geo="geo1"),
+          testcase_name="array_shape_without_cost_feature_national_model",
+          cost_features=None),
       dict(
-          testcase_name="array_value_with_cost_feature",
-          media_features=["channel1_imp", "channel2_imp"],
-          extra_features=["promo_1"],
-          geo_feature="geo",
-          date_feature="date",
-          target="kpi",
-          cost_features=["channel1_cost", "channel2_cost"],
-          test_geo="geo1")
+          testcase_name="array_shape_with_cost_feature_national_model",
+          cost_features=["channel1_cost", "channel2_cost"])
   ])
-  def test_dataframe_to_jax_produce_correct_value_with_or_without_cost(
-      self, media_features, extra_features, geo_feature, date_feature, target,
-      cost_features, test_geo):
+  def test_dataframe_to_jax_produce_correct_shape_with_or_without_cost_national_multiple_features(
+      self, cost_features):
+    n_weeks = _MEDIA_DATAFRAME.loc[
+        _MEDIA_DATAFRAME["geo"] == "geo1", "date"].nunique()
+    n_media_channels = len(["channel1_imp", "channel2_imp"])
+    n_extra_features = len(["promo_1", "promo_2"])
+
+    media_data, extra_features_data, target_data, costs_data = utils.dataframe_to_jax(
+        dataframe=_MEDIA_DATAFRAME[_MEDIA_DATAFRAME["geo"] == "geo1"],
+        media_features=["channel1_imp", "channel2_imp"],
+        extra_features=["promo_1", "promo_2"],
+        date_feature="date",
+        target="kpi",
+        cost_features=cost_features
+    )
+
+    self.assertEqual(media_data.shape, (n_weeks, n_media_channels))
+    self.assertEqual(extra_features_data.shape,
+                     (n_weeks, n_extra_features))
+    self.assertLen(target_data, n_weeks)
+    self.assertLen(costs_data, n_media_channels)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="array_shape_without_cost_feature_national_model",
+          cost_features=None),
+      dict(
+          testcase_name="array_shape_with_cost_feature_national_model",
+          cost_features=["channel1_cost"])
+  ])
+  def test_dataframe_to_jax_produce_correct_shape_with_or_without_cost_national_one_feature(
+      self, cost_features):
+    n_weeks = _MEDIA_DATAFRAME.loc[
+        _MEDIA_DATAFRAME["geo"] == "geo1", "date"].nunique()
+    n_media_channels = len(["channel1_imp"])
+    n_extra_features = len(["promo_1"])
+
+    media_data, extra_features_data, target_data, costs_data = utils.dataframe_to_jax(
+        dataframe=_MEDIA_DATAFRAME[_MEDIA_DATAFRAME["geo"] == "geo1"],
+        media_features=["channel1_imp"],
+        extra_features=["promo_1"],
+        date_feature="date",
+        target="kpi",
+        cost_features=cost_features
+    )
+
+    self.assertEqual(media_data.shape, (n_weeks, n_media_channels))
+    self.assertEqual(extra_features_data.shape,
+                     (n_weeks, n_extra_features))
+    self.assertLen(target_data, n_weeks)
+    self.assertLen(costs_data, n_media_channels)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="array_value_without_cost_feature_regional_model",
+          cost_features=None,
+          actual_cost_features_list=["channel1_imp", "channel2_imp"]),
+      dict(
+          testcase_name="array_value_with_cost_feature_regional_model",
+          cost_features=["channel1_cost", "channel2_cost"],
+          actual_cost_features_list=["channel1_cost", "channel2_cost"])
+  ])
+  def test_dataframe_to_jax_produce_correct_value_with_or_without_cost_regional(
+      self, cost_features, actual_cost_features_list):
+    n_weeks = _MEDIA_DATAFRAME["date"].nunique()
+    geo1_media = _MEDIA_DATAFRAME.loc[_MEDIA_DATAFRAME["geo"] == "geo1",
+                                      ["channel1_imp", "channel2_imp"]].values
+    geo1_extra_features = _MEDIA_DATAFRAME.loc[_MEDIA_DATAFRAME["geo"] ==
+                                               "geo1", ["promo_1"]].values
+    geo1_target = _MEDIA_DATAFRAME.loc[_MEDIA_DATAFRAME["geo"] ==
+                                       "geo1", ["kpi"]].values
+    geo1_target = geo1_target.reshape(n_weeks,)
+    cost_by_channel = _MEDIA_DATAFRAME.loc[
+        :, actual_cost_features_list].sum().values
+
     media_data, extra_features_data, target_data, costs_data = utils.dataframe_to_jax(
         dataframe=_MEDIA_DATAFRAME,
-        media_features=media_features,
-        extra_features=extra_features,
-        geo_feature=geo_feature,
-        date_feature=date_feature,
-        target=target,
+        media_features=["channel1_imp", "channel2_imp"],
+        extra_features=["promo_1"],
+        geo_feature="geo",
+        date_feature="date",
+        target="kpi",
         cost_features=cost_features)
-    n_weeks = _MEDIA_DATAFRAME[date_feature].nunique()
-    geo1_media = _MEDIA_DATAFRAME.loc[_MEDIA_DATAFRAME[geo_feature] == test_geo,
-                                      media_features].values
-    geo1_extra_features = _MEDIA_DATAFRAME.loc[_MEDIA_DATAFRAME[geo_feature] ==
-                                               test_geo, extra_features].values
-    geo1_target = _MEDIA_DATAFRAME.loc[_MEDIA_DATAFRAME[geo_feature] ==
-                                       test_geo, [target]].values
-    geo1_target = geo1_target.reshape(n_weeks,)
-    if cost_features is None:
-      cost_by_channel = _MEDIA_DATAFRAME.loc[:, media_features].sum().values
-    else:
-      cost_by_channel = _MEDIA_DATAFRAME.loc[:, cost_features].sum().values
 
     np.testing.assert_array_equal(media_data[:, :, 0], geo1_media)
     np.testing.assert_array_equal(extra_features_data[:, :, 0],
                                   geo1_extra_features)
     np.testing.assert_array_equal(target_data[:, 0],
                                   geo1_target.reshape(n_weeks,))
+    np.testing.assert_array_equal(costs_data, cost_by_channel)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="array_value_without_cost_feature_national_model",
+          dataframe=_MEDIA_DATAFRAME[_MEDIA_DATAFRAME["geo"] == "geo1"],
+          cost_features=None,
+          actual_cost_features_list=["channel1_imp", "channel2_imp"]),
+      dict(
+          testcase_name="array_value_with_cost_feature_national_model",
+          dataframe=_MEDIA_DATAFRAME[_MEDIA_DATAFRAME["geo"] == "geo1"],
+          cost_features=["channel1_cost", "channel2_cost"],
+          actual_cost_features_list=["channel1_cost", "channel2_cost"])
+  ])
+  def test_dataframe_to_jax_produce_correct_value_with_or_without_cost_national(
+      self, dataframe, cost_features, actual_cost_features_list):
+    media_from_test_dataframe = dataframe[
+        ["channel1_imp", "channel2_imp"]].values
+    extra_features_from_test_dataframe = dataframe[["promo_1"]].values
+    target_from_test_dataframe = dataframe["kpi"].values
+    cost_by_channel = dataframe.loc[
+        :, actual_cost_features_list].sum().values
+
+    media_data, extra_features_data, target_data, costs_data = utils.dataframe_to_jax(
+        dataframe=dataframe,
+        media_features=["channel1_imp", "channel2_imp"],
+        extra_features=["promo_1"],
+        date_feature="date",
+        target="kpi",
+        cost_features=cost_features)
+
+    np.testing.assert_array_equal(media_data, media_from_test_dataframe)
+    np.testing.assert_array_equal(
+        extra_features_data,
+        extra_features_from_test_dataframe)
+    np.testing.assert_array_equal(target_data, target_from_test_dataframe)
     np.testing.assert_array_equal(costs_data, cost_by_channel)
 
   @parameterized.named_parameters([

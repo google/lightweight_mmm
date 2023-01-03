@@ -27,7 +27,6 @@ from scipy import optimize
 from scipy import spatial
 from scipy import stats
 from tensorflow.io import gfile
-from typing_extensions import Literal
 
 from lightweight_mmm import media_transforms
 
@@ -167,32 +166,29 @@ def simulate_dummy_data(
 
 
 def _split_array_into_list(
-    dataframe: pd.DataFrame, split_level_feature: str, features: List[str],
-    array_dimension: Literal["2d", "3d"] = "3d") -> List[np.ndarray]:
+    dataframe: pd.DataFrame,
+    split_level_feature: str,
+    features: List[str],
+    national_model_flag: bool = True) -> List[np.ndarray]:
   """Splits data frame into list of jax arrays.
 
   Args:
     dataframe: Dataframe with all the modeling feature.
     split_level_feature: Feature that will be used to split.
     features: List of feature to export from data frame.
-    array_dimension: Dimension of the jax array.
+    national_model_flag: Whether the data frame is used for national model.
 
   Returns:
     List of jax arrays.
   """
-  if array_dimension not in ["3d", "2d"]:
-    raise ValueError("Array dimension has to be either 2d or 3d.")
   split_level = dataframe[split_level_feature].unique()
   array_list_by_level = [
       dataframe.loc[dataframe[split_level_feature] == level, features].values.T
       for level in split_level
   ]
-  if array_dimension == "3d":
-    feature_array = jnp.stack(array_list_by_level)
-  else:
-    feature_array_3d = jnp.stack(array_list_by_level).T
-    feature_array = feature_array_3d.reshape(feature_array_3d.shape[0],
-                                             feature_array_3d.shape[2])
+  feature_array = jnp.stack(array_list_by_level)
+  if national_model_flag:
+    feature_array = jnp.squeeze(feature_array, axis=2)
   return feature_array
 
 
@@ -200,9 +196,9 @@ def dataframe_to_jax(
     dataframe: pd.DataFrame,
     media_features: List[str],
     extra_features: List[str],
-    geo_feature: str,
     date_feature: str,
     target: str,
+    geo_feature: Optional[str] = None,
     cost_features: Optional[List[str]] = None
     ) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
   """Converts pandas dataframe to right data format for media mix model.
@@ -215,9 +211,10 @@ def dataframe_to_jax(
     dataframe: Dataframe with geo, KPI, media and non-media features.
     media_features: List of media feature names.
     extra_features: List of non media feature names.
-    geo_feature: Geo feature name.
     date_feature: Date feature name.
     target: Target variables name.
+    geo_feature: Geo feature name and it is optional if the data is at national
+      level.
     cost_features: List of media cost variables and it is optional if user
       use actual media cost as their media features in the model.
 
@@ -225,31 +222,42 @@ def dataframe_to_jax(
     Media, extra features, target and costs arrays.
 
   Raises:
-    ValueError: If each geo has unequal number of weeks.
+    ValueError: If each geo has unequal number of weeks or there is only one
+    value in the geo feature.
   """
-
-  count_by_geo = dataframe.groupby(
-      geo_feature)[date_feature].count().reset_index()
-  unique_date_count = count_by_geo[date_feature].nunique()
-  if unique_date_count != 1:
-    raise ValueError("Not all the geos have same number of weeks.")
+  if geo_feature is not None:
+    if dataframe[geo_feature].nunique() == 1:
+      raise ValueError(
+          "Geo feature has at least two geos or keep default for national model"
+          )
+    count_by_geo = dataframe.groupby(
+        geo_feature)[date_feature].count().reset_index()
+    unique_date_count = count_by_geo[date_feature].nunique()
+    if unique_date_count != 1:
+      raise ValueError("Not all the geos have same number of weeks.")
+    national_model_flag = False
+  else:
+    national_model_flag = True
 
   df_sorted = dataframe.sort_values(by=date_feature)
   media_features_data = _split_array_into_list(
       dataframe=df_sorted,
       split_level_feature=date_feature,
-      features=media_features)
+      features=media_features,
+      national_model_flag=national_model_flag)
 
   extra_features_data = _split_array_into_list(
       dataframe=df_sorted,
       split_level_feature=date_feature,
-      features=extra_features)
+      features=extra_features,
+      national_model_flag=national_model_flag)
 
   target_data = _split_array_into_list(
       dataframe=df_sorted,
-      split_level_feature=geo_feature,
+      split_level_feature=date_feature,
       features=[target],
-      array_dimension="2d")
+      national_model_flag=national_model_flag)
+  target_data = jnp.squeeze(target_data)
 
   if cost_features:
     cost_data = jnp.dot(
