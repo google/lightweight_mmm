@@ -1,4 +1,4 @@
-# Copyright 2022 Google LLC.
+# Copyright 2023 Google LLC.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import numpyro.distributions as dist
+import pandas as pd
 
 from lightweight_mmm import lightweight_mmm
 from lightweight_mmm import models
@@ -107,6 +108,7 @@ def _set_up_mock_mmm(model_name: str,
   mmm._extra_features = None
   mmm.trace = mock_trace
   mmm.media = jnp.ones_like(mock_trace["media_transformed"][0])
+  mmm.media_names = [f"channel_{i}" for i in range(5)]
   return mmm
 
 
@@ -401,6 +403,70 @@ class PlotTest(parameterized.TestCase):
           kpi_without_optim=kpi_without_optim,
           optimal_buget_allocation=optimal_buget_allocation,
           previous_budget_allocation=previous_budget_allocation)
+
+  @parameterized.named_parameters(
+      dict(
+          testcase_name="no channel_name input",
+          media_mix_model="not_fitted_mmm",
+          media_spend=np.ones((50, 5)),
+          channel_names=None),
+      dict(
+          testcase_name="channel_name input",
+          media_mix_model="not_fitted_mmm",
+          media_spend=np.ones((50, 5)),
+          channel_names=[f"channel_{x}" for x in range(5)]))
+  def test_create_attribution_over_spend_fractions_raise_notfittedmodelerror(
+      self, media_mix_model, media_spend, channel_names):
+    with self.assertRaises(lightweight_mmm.NotFittedModelError):
+      plot.create_attribution_over_spend_fractions(
+          media_mix_model=getattr(self, media_mix_model),
+          media_spend=media_spend,
+          channel_names=channel_names)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="negative_number",
+          media_mix_model="national_mmm",
+          media_spend=-np.ones((50, 5))),
+      dict(
+          testcase_name="aggeregated_zero",
+          media_mix_model="national_mmm",
+          media_spend=np.zeros((50, 5)))
+  ])
+  def test_create_attribution_over_spend_fractions_raise_error_on_invalid_values(
+      self, media_mix_model, media_spend):
+    expected_message = ("Values in media must all be non-negative or values in "
+                        "aggregated media must be possitive.")
+    with self.assertRaisesRegex(ValueError, expected_message):
+      plot.create_attribution_over_spend_fractions(
+          getattr(self, media_mix_model), media_spend)
+
+  @parameterized.product(
+      (dict(is_geo_model=False, media_spend=np.array([1, 2, 3, 4, 5])),
+       dict(
+           is_geo_model=False,
+           media_spend=np.resize(np.array([1, 2, 3, 4, 5]), 250).reshape(50,
+                                                                         5)),),
+      (dict(channel_names=None),
+       dict(channel_names=[f"channel_{x}" for x in range(5)])),
+      (dict(time_index=None), dict(time_index=(1, 10))),
+      (dict(model_name="adstock"), dict(model_name="carryover"),
+       dict(model_name="hill_adstock")))
+  def test_create_attribution_over_spend_fractions_results_are_correct(
+      self, model_name, is_geo_model, media_spend, channel_names, time_index):
+    mmm = _set_up_mock_mmm(model_name, is_geo_model)
+
+    expected_results = pd.DataFrame(
+        np.transpose([np.ones(5)/np.ones(5).sum(),
+                      np.arange(1, 6)/np.arange(1, 6).sum(),
+                      3/np.arange(1, 6)]),
+        index=[f"channel_{x}" for x in range(5)],
+        columns=["media attribution", "media spend", "attribution over spend"])
+
+    aos_fractions_df = plot.create_attribution_over_spend_fractions(
+        mmm, media_spend, channel_names, time_index)
+
+    pd.testing.assert_frame_equal(aos_fractions_df, expected_results, atol=1e-3)
 
   def test_create_media_baseline_contribution_df_raise_notfittedmodelerror(
       self):

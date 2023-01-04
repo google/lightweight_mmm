@@ -1,4 +1,4 @@
-# Copyright 2022 Google LLC.
+# Copyright 2023 Google LLC.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 """Plotting functions pre and post model fitting."""
 
 import functools
+import logging
 
 # Using these types from typing instead of their generic types in the type hints
 # in order to be compatible with Python 3.7 and 3.8.
@@ -176,6 +177,75 @@ def _calculate_media_contribution(
     # Aggregate media channel contribution across geos.
     media_contribution = media_contribution.sum(axis=-1)
   return media_contribution
+
+
+def create_attribution_over_spend_fractions(
+    media_mix_model: lightweight_mmm.LightweightMMM,
+    media_spend: jnp.ndarray,
+    channel_names: Optional[Sequence[str]] = None,
+    time_index: Optional[Tuple[int, int]] = None) -> pd.DataFrame:
+  """Creates a dataframe for media attribution over spend.
+
+  The output dataframe will be used to create media attribution and spend
+  barplot; and attribution over spend lineplot
+
+  Args:
+    media_mix_model: Media mix model.
+    media_spend: Media spend per channel. If 1D, it needs to be pre-processed to
+      align with time index range. 2D represents media spend per time and
+      channel. Media spends need to be aggregated over geo before input.
+    channel_names: Names of media channels to be added to the output dataframe.
+    time_index: Time range index used for calculation.
+
+  Returns:
+    DataFrame containing fractions of the contribution and spend and
+    attribution over spend for each channel.
+
+  Rasies:
+    ValueError: if any of the media values are negative or any aggregated media
+    spends are zero or negative.
+    NotFittedModelError: if the model is not fitted.
+  """
+  if (media_spend < 0).any():
+    raise ValueError("Values in media must all be non-negative or values "
+                     "in aggregated media must be possitive.")
+  if channel_names is None:
+    try:
+      channel_names = media_mix_model.media_names
+    except AttributeError as att_error:
+      raise lightweight_mmm.NotFittedModelError(
+          "Model needs to be fit first before attempting to plot its fit."
+      ) from att_error
+
+  media_contribution = _calculate_media_contribution(media_mix_model)
+  if time_index is None:
+    time_index = (0, media_contribution.shape[1])
+
+  # Select time span and aggregate 2D media spend.
+  if media_spend.ndim == 1:
+    logging.warning("1D media spend has to align with time index range.")
+  elif media_spend.ndim == 2:
+    media_spend = media_spend[time_index[0]:time_index[1], :]
+    media_spend = media_spend.sum(axis=0)
+
+  # Select time span and aggregate media contribution.
+  media_contribution = media_contribution[:, time_index[0]:time_index[1],]
+  media_contribution = media_contribution.sum(axis=(0, 1))
+
+  # Create media contribution and spend dataframe
+  media_df = pd.DataFrame(
+      np.transpose([media_contribution, media_spend]),
+      index=channel_names,
+      columns=["media attribution", "media spend"])
+
+  if (media_df["media spend"] == 0).any():
+    raise ValueError("Values in media must all be non-negative or values "
+                     "in aggregated media must be possitive.")
+
+  normalized_media_df = media_df.div(media_df.sum(axis=0), axis=1)
+  normalized_media_df["attribution over spend"] = normalized_media_df[
+      "media attribution"] / normalized_media_df["media spend"]
+  return normalized_media_df
 
 
 def create_media_baseline_contribution_df(
