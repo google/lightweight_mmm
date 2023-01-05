@@ -937,7 +937,7 @@ def plot_pre_post_budget_allocation_comparison(
       x_axis + 0.2,
       optimal_buget_allocation,
       width=0.4,
-      label="optmized buget allocation")
+      label="optimized budget allocation")
   axes[0].set_ylabel("Budget Allocation", fontsize="x-large")
   axes[0].set_title(
       "Before and After Optimization Budget Allocation Comparison",
@@ -971,7 +971,7 @@ def plot_pre_post_budget_allocation_comparison(
   axes[0].legend(fontsize="medium")
 
   plots3 = axes[1].bar([
-      "pre optimization predictited target",
+      "pre optimization predicted target",
       "post optimization predicted target"
   ], predictions)
   axes[1].set_ylim(
