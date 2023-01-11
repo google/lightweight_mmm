@@ -23,6 +23,7 @@ import numpyro
 from numpyro import distributions as dist
 from numpyro import handlers
 
+from lightweight_mmm.core import core_utils
 from lightweight_mmm.core import priors
 from lightweight_mmm.core.time import trend
 
@@ -187,6 +188,139 @@ class TrendTest(parameterized.TestCase):
 
     np.testing.assert_array_equal(x=dynamic_trend_values,
                                   y=dynamic_trend_expected_value)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="national_with_prediction_is_true",
+          data_shape=(100, 3),
+          is_trend_prediction=True),
+      dict(
+          testcase_name="geo_with_prediction_is_true",
+          data_shape=(150, 3, 5),
+          is_trend_prediction=True),
+      dict(
+          testcase_name="national_with_prediction_is_false",
+          data_shape=(100, 3),
+          is_trend_prediction=False),
+      dict(
+          testcase_name="geo_with_prediction_is_false",
+          data_shape=(150, 3, 5),
+          is_trend_prediction=False),
+  ])
+  def test_dynamic_trend_produces_correct_shape(
+      self, data_shape, is_trend_prediction):
+
+    def mock_model_function(geo_size, data_size):
+      numpyro.deterministic(
+          "trend", trend.dynamic_trend(
+              geo_size=geo_size,
+              data_size=data_size,
+              is_trend_prediction=is_trend_prediction,
+              custom_priors={},
+          ))
+    num_samples = 10
+    data = jnp.ones(data_shape)
+    geo_size = core_utils.get_number_geos(data)
+    kernel = numpyro.infer.NUTS(model=mock_model_function)
+    mcmc = numpyro.infer.MCMC(
+        sampler=kernel, num_warmup=10, num_samples=num_samples, num_chains=1)
+    rng_key = jax.random.PRNGKey(0)
+    coef_expected_shape = core_utils.get_geo_shape(data)
+
+    mcmc.run(rng_key, geo_size=geo_size, data_size=data_shape[0])
+    trend_values = mcmc.get_samples()["trend"]
+
+    self.assertEqual(trend_values.shape,
+                     (num_samples, data.shape[0], *coef_expected_shape))
+
+  @parameterized.named_parameters(
+      dict(
+          testcase_name=f"model_{priors.DYNAMIC_TREND_INITIAL_LEVEL}",
+          prior_name=priors.DYNAMIC_TREND_INITIAL_LEVEL,
+      ),
+      dict(
+          testcase_name=f"model_{priors.DYNAMIC_TREND_INITIAL_SLOPE}",
+          prior_name=priors.DYNAMIC_TREND_INITIAL_SLOPE,
+      ),
+      dict(
+          testcase_name=f"model_{priors.DYNAMIC_TREND_LEVEL_VARIANCE}",
+          prior_name=priors.DYNAMIC_TREND_LEVEL_VARIANCE,
+      ),
+      dict(
+          testcase_name=f"model_{priors.DYNAMIC_TREND_SLOPE_VARIANCE}",
+          prior_name=priors.DYNAMIC_TREND_SLOPE_VARIANCE,
+      ),
+  )
+  def test_core_dynamic_trend_custom_priors_are_taken_correctly(
+      self, prior_name):
+    expected_value1, expected_value2 = 5.2, 7.56
+    custom_priors = {
+        prior_name:
+            dist.Kumaraswamy(
+                concentration1=expected_value1, concentration0=expected_value2)
+    }
+    geo_size = 1
+    data_size = 10
+    trace_handler = handlers.trace(
+        handlers.seed(trend.dynamic_trend, rng_seed=0))
+    trace = trace_handler.get_trace(
+        geo_size=geo_size,
+        data_size=data_size,
+        is_trend_prediction=False,
+        custom_priors=custom_priors,
+    )
+    values_and_dists = {
+        name: site["fn"] for name, site in trace.items() if "fn" in site
+    }
+
+    used_distribution = values_and_dists[prior_name]
+    if isinstance(used_distribution, dist.ExpandedDistribution):
+      used_distribution = used_distribution.base_dist
+
+    self.assertIsInstance(used_distribution, dist.Kumaraswamy)
+    self.assertEqual(used_distribution.concentration0, expected_value2)
+    self.assertEqual(used_distribution.concentration1, expected_value1)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="trend_prediction_is_true",
+          is_trend_prediction=True,
+          expected_trend_parameter=[
+              "random_walk_level_prediction", "random_walk_slope_prediction"]
+          ),
+      dict(
+          testcase_name="trend_prediction_is_false",
+          is_trend_prediction=False,
+          expected_trend_parameter=[
+              "random_walk_level", "random_walk_slope"]
+          ),
+  ])
+  def test_dynamic_trend_is_trend_prediction_produuce_correct_parameter_names(
+      self, is_trend_prediction, expected_trend_parameter):
+
+    def mock_model_function(geo_size, data_size):
+      numpyro.deterministic(
+          "trend", trend.dynamic_trend(
+              geo_size=geo_size,
+              data_size=data_size,
+              is_trend_prediction=is_trend_prediction,
+              custom_priors={},
+          ))
+    num_samples = 10
+    data_shape = (10, 3)
+    data = jnp.ones(data_shape)
+    geo_size = core_utils.get_number_geos(data)
+    kernel = numpyro.infer.NUTS(model=mock_model_function)
+    mcmc = numpyro.infer.MCMC(
+        sampler=kernel, num_warmup=10, num_samples=num_samples, num_chains=1)
+    rng_key = jax.random.PRNGKey(0)
+
+    mcmc.run(rng_key, geo_size=geo_size, data_size=data_shape[0])
+    trend_parameter = [
+        parameter for parameter, _ in mcmc.get_samples().items()
+        if parameter.startswith("random_walk")]
+
+    self.assertEqual(trend_parameter, expected_trend_parameter)
 
 if __name__ == "__main__":
   absltest.main()

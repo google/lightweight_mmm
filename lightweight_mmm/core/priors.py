@@ -38,6 +38,12 @@ EXPONENT = "exponent"
 HALF_MAX_EFFECTIVE_CONCENTRATION = "half_max_effective_concentration"
 SLOPE = "slope"
 
+# Dynamic trend priors
+DYNAMIC_TREND_INITIAL_LEVEL = "dynamic_trend_initial_level"
+DYNAMIC_TREND_INITIAL_SLOPE = "dynamic_trend_initial_slope"
+DYNAMIC_TREND_LEVEL_VARIANCE = "dynamic_trend_level_variance"
+DYNAMIC_TREND_SLOPE_VARIANCE = "dynamic_trend_slope_variance"
+
 MODEL_PRIORS_NAMES = frozenset((
     INTERCEPT,
     COEF_TREND,
@@ -53,16 +59,11 @@ MODEL_PRIORS_NAMES = frozenset((
     EXPONENT,
     HALF_MAX_EFFECTIVE_CONCENTRATION,
     SLOPE,
+    DYNAMIC_TREND_INITIAL_LEVEL,
+    DYNAMIC_TREND_INITIAL_SLOPE,
+    DYNAMIC_TREND_LEVEL_VARIANCE,
+    DYNAMIC_TREND_SLOPE_VARIANCE,
 ))
-
-TRANSFORM_PRIORS_NAMES = immutabledict.immutabledict({
-    "carryover":
-        frozenset((AD_EFFECT_RETENTION_RATE, PEAK_EFFECT_DELAY, EXPONENT)),
-    "adstock":
-        frozenset((EXPONENT, LAG_WEIGHT)),
-    "hill_adstock":
-        frozenset((LAG_WEIGHT, HALF_MAX_EFFECTIVE_CONCENTRATION, SLOPE))
-})
 
 GEO_ONLY_PRIORS = frozenset((COEF_SEASONALITY,))
 
@@ -85,4 +86,8 @@ def get_default_priors() -> Mapping[str, dist.Distribution]:
       LAG_WEIGHT: dist.Beta(concentration1=2., concentration0=1.),
       HALF_MAX_EFFECTIVE_CONCENTRATION: dist.Gamma(concentration=1., rate=1.),
       SLOPE: dist.Gamma(concentration=1., rate=1.),
+      DYNAMIC_TREND_INITIAL_LEVEL: dist.Normal(loc=.5, scale=2.5),
+      DYNAMIC_TREND_INITIAL_SLOPE: dist.Normal(loc=0., scale=.2),
+      DYNAMIC_TREND_LEVEL_VARIANCE: dist.Uniform(low=0., high=.1),
+      DYNAMIC_TREND_SLOPE_VARIANCE: dist.Uniform(low=0., high=.01),
   })

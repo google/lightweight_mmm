@@ -105,7 +105,7 @@ def _dynamic_trend(
     The dynamic trend values for the given data with the given parameters.
   """
   # Simulate gaussian random walk of level with initial level.
-  random_level = variance_level * random_walk_level 
+  random_level = variance_level * random_walk_level
   random_level_with_initial_level = jnp.concatenate(
       [jnp.array([random_level[0] + initial_level]), random_level[1:]])
   level_trend_t = jnp.cumsum(random_level_with_initial_level, axis=0)
@@ -121,3 +121,89 @@ def _dynamic_trend(
       jnp.cumsum(slope_trend_t, axis=0)[:number_periods - 1],
       initial_zero_shape, mode="constant", constant_values=0)
   return level_trend_t + slope_trend_cumsum
+
+
+def dynamic_trend(
+    geo_size: int,
+    data_size: int,
+    is_trend_prediction: bool,
+    custom_priors: Mapping[str, dist.Distribution],
+) -> jnp.ndarray:
+  """Generates the dynamic trend to capture the baseline of kpi.
+
+  Args:
+    geo_size: Number of geos in the model.
+    data_size: Number of time samples in the model.
+    is_trend_prediction: Whether it is used for prediction or fitting.
+    custom_priors: The custom priors we want the model to take instead of the
+      default ones. See our custom_priors documentation for details about the
+      API and possible options.
+
+  Returns:
+    Jax array with trend for each time t.
+  """
+  default_priors = priors.get_default_priors()
+  if not is_trend_prediction:
+    random_walk_level = numpyro.sample("random_walk_level",
+                                       fn=dist.Normal(),
+                                       sample_shape=(data_size, 1))
+    random_walk_slope = numpyro.sample("random_walk_slope",
+                                       fn=dist.Normal(),
+                                       sample_shape=(data_size, 1))
+  else:
+    random_walk_level = numpyro.sample("random_walk_level_prediction",
+                                       fn=dist.Normal(),
+                                       sample_shape=(data_size, 1))
+
+    random_walk_slope = numpyro.sample("random_walk_slope_prediction",
+                                       fn=dist.Normal(),
+                                       sample_shape=(data_size, 1))
+
+  with numpyro.plate(
+      name=f"{priors.DYNAMIC_TREND_INITIAL_LEVEL}_plate", size=geo_size):
+    trend_initial_level = numpyro.sample(
+        name=priors.DYNAMIC_TREND_INITIAL_LEVEL,
+        fn=custom_priors.get(
+            priors.DYNAMIC_TREND_INITIAL_LEVEL,
+            default_priors[priors.DYNAMIC_TREND_INITIAL_LEVEL]))
+
+  with numpyro.plate(
+      name=f"{priors.DYNAMIC_TREND_INITIAL_SLOPE}_plate", size=geo_size):
+    trend_initial_slope = numpyro.sample(
+        name=priors.DYNAMIC_TREND_INITIAL_SLOPE,
+        fn=custom_priors.get(
+            priors.DYNAMIC_TREND_INITIAL_SLOPE,
+            default_priors[priors.DYNAMIC_TREND_INITIAL_SLOPE]))
+
+  with numpyro.plate(
+      name=f"{priors.DYNAMIC_TREND_LEVEL_VARIANCE}_plate", size=geo_size):
+    trend_level_variance = numpyro.sample(
+        name=priors.DYNAMIC_TREND_LEVEL_VARIANCE,
+        fn=custom_priors.get(
+            priors.DYNAMIC_TREND_LEVEL_VARIANCE,
+            default_priors[priors.DYNAMIC_TREND_LEVEL_VARIANCE]))
+
+  with numpyro.plate(
+      name=f"{priors.DYNAMIC_TREND_SLOPE_VARIANCE}_plate", size=geo_size):
+    trend_slope_variance = numpyro.sample(
+        name=priors.DYNAMIC_TREND_SLOPE_VARIANCE,
+        fn=custom_priors.get(
+            priors.DYNAMIC_TREND_SLOPE_VARIANCE,
+            default_priors[priors.DYNAMIC_TREND_SLOPE_VARIANCE]))
+
+  if geo_size == 1:  # National level model case.
+    random_walk_level = jnp.squeeze(random_walk_level)
+    random_walk_slope = jnp.squeeze(random_walk_slope)
+    trend_initial_level = jnp.squeeze(trend_initial_level)
+    trend_initial_slope = jnp.squeeze(trend_initial_slope)
+    trend_level_variance = jnp.squeeze(trend_level_variance)
+    trend_slope_variance = jnp.squeeze(trend_slope_variance)
+
+  return _dynamic_trend(
+      number_periods=data_size,
+      random_walk_level=random_walk_level,
+      random_walk_slope=random_walk_slope,
+      initial_level=trend_initial_level,
+      initial_slope=trend_initial_slope,
+      variance_level=trend_level_variance,
+      variance_slope=trend_slope_variance)
