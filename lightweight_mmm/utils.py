@@ -236,10 +236,12 @@ def dataframe_to_jax(
     if unique_date_count != 1:
       raise ValueError("Not all the geos have same number of weeks.")
     national_model_flag = False
+    features_to_sort = [date_feature, geo_feature]
   else:
     national_model_flag = True
+    features_to_sort = [date_feature]
 
-  df_sorted = dataframe.sort_values(by=date_feature)
+  df_sorted = dataframe.sort_values(by=features_to_sort)
   media_features_data = _split_array_into_list(
       dataframe=df_sorted,
       split_level_feature=date_feature,

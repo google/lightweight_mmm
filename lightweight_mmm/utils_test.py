@@ -37,6 +37,18 @@ _MEDIA_DATAFRAME = pd.DataFrame(
         "channel1_cost", "channel2_cost", "promo_1", "promo_2"
     ])
 
+_MEDIA_DATAFRAME_UNSORTED = pd.DataFrame(
+    data=[["2020-01-01", "geo2", 40, 6, 2, 2, 1, 0, 1],
+          ["2020-01-08", "geo1", 21, 1, 7, 2, 1, 1, 1],
+          ["2020-01-08", "geo3", 20, 5, 3, 2, 1, 1, 1],
+          ["2020-01-01", "geo1", 10, 2, 3, 2, 1, 1, 1],
+          ["2020-01-08", "geo2", 27, 3, 9, 2, 1, 1, 1],
+          ["2020-01-01", "geo3", 33, 7, 5, 2, 1, 0, 1]],
+    columns=[
+        "date", "geo", "kpi", "channel1_imp", "channel2_imp",
+        "channel1_cost", "channel2_cost", "promo_1", "promo_2"
+    ])
+
 
 class UtilsTest(parameterized.TestCase):
 
@@ -303,6 +315,40 @@ class UtilsTest(parameterized.TestCase):
         extra_features_from_test_dataframe)
     np.testing.assert_array_equal(target_data, target_from_test_dataframe)
     np.testing.assert_array_equal(costs_data, cost_by_channel)
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="array_value_without_cost_feature_regional_model_unsorted",
+          cost_features=None),
+      dict(
+          testcase_name="array_value_with_cost_feature_regional_model_unsorted",
+          cost_features=["channel1_cost", "channel2_cost"])
+  ])
+  def test_dataframe_to_jax_produce_correct_value_with_unsorted_dataframe(
+      self, cost_features):
+    media_data_sorted, extra_features_data_sorted, target_data_sorted, costs_data_sorted = utils.dataframe_to_jax(
+        dataframe=_MEDIA_DATAFRAME,
+        media_features=["channel1_imp", "channel2_imp"],
+        extra_features=["promo_1"],
+        geo_feature="geo",
+        date_feature="date",
+        target="kpi",
+        cost_features=cost_features)
+
+    media_data_unsorted, extra_features_data_unsorted, target_data_unsorted, costs_data_unsorted = utils.dataframe_to_jax(
+        dataframe=_MEDIA_DATAFRAME_UNSORTED,
+        media_features=["channel1_imp", "channel2_imp"],
+        extra_features=["promo_1"],
+        geo_feature="geo",
+        date_feature="date",
+        target="kpi",
+        cost_features=cost_features)
+
+    np.testing.assert_array_equal(media_data_sorted, media_data_unsorted)
+    np.testing.assert_array_equal(
+        extra_features_data_sorted, extra_features_data_unsorted)
+    np.testing.assert_array_equal(target_data_sorted, target_data_unsorted)
+    np.testing.assert_array_equal(costs_data_sorted, costs_data_unsorted)
 
   @parameterized.named_parameters([
       dict(
