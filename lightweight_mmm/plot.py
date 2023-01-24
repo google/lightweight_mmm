@@ -982,7 +982,7 @@ def plot_pre_post_budget_allocation_comparison(
       "Pre Post Optimization Target Variable Comparison", fontsize="x-large")
   axes[1].set_xticks(range(2))
   axes[1].set_xticklabels([
-      "pre optimization predictited target",
+      "pre optimization predicted target",
       "post optimization predicted target"
   ],
                           fontsize="x-large")
