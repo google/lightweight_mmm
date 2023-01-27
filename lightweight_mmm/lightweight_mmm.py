@@ -101,7 +101,7 @@ def _compare_equality_for_lmmm(item_1: Any, item_2: Any) -> bool:
         isinstance(x, str) for x in item_2):
       is_equal = item_1 == item_2
     else:
-      is_equal = jnp.array_equal(item_1, item_2, equal_nan=True)
+      is_equal = np.array_equal(item_1, item_2, equal_nan=True)
   elif isinstance(item_1, MutableMapping):
     is_equal = all([
         _compare_equality_for_lmmm(item_1[x], item_2[x])
