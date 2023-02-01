@@ -883,7 +883,7 @@ def plot_pre_post_budget_allocation_comparison(
     media_mix_model: lightweight_mmm.LightweightMMM,
     kpi_with_optim: jnp.ndarray,
     kpi_without_optim: jnp.ndarray,
-    optimal_buget_allocation: jnp.ndarray,
+    optimal_budget_allocation: jnp.ndarray,
     previous_budget_allocation: jnp.ndarray,
     channel_names: Optional[Sequence[Any]] = None,
     figure_size: Tuple[int, int] = (20, 10)
@@ -896,7 +896,7 @@ def plot_pre_post_budget_allocation_comparison(
       allocation.
     kpi_without_optim: negative predicted target variable with original budget
       allocation proportion base on the historical data.
-    optimal_buget_allocation: Optmized budget allocation.
+    optimal_budget_allocation: Optimized budget allocation.
     previous_budget_allocation: Starting budget allocation based on original
       budget allocation proportion.
     channel_names: Names of media channels to be added to plot.
@@ -912,8 +912,8 @@ def plot_pre_post_budget_allocation_comparison(
 
   previous_budget_allocation_pct = previous_budget_allocation / jnp.sum(
       previous_budget_allocation)
-  optimized_budget_allocation_pct = optimal_buget_allocation / jnp.sum(
-      optimal_buget_allocation)
+  optimized_budget_allocation_pct = optimal_budget_allocation / jnp.sum(
+      optimal_budget_allocation)
 
   if channel_names is None:
     channel_names = media_mix_model.media_names
@@ -935,7 +935,7 @@ def plot_pre_post_budget_allocation_comparison(
       label="previous budget allocation")
   plots2 = axes[0].bar(
       x_axis + 0.2,
-      optimal_buget_allocation,
+      optimal_budget_allocation,
       width=0.4,
       label="optimized budget allocation")
   axes[0].set_ylabel("Budget Allocation", fontsize="x-large")
