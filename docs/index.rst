@@ -47,6 +47,12 @@ If you want to use the most recent and slightly less stable version you can inst
 
    api
 
+.. toctree::
+   :caption: FAQ
+   :maxdepth: 2
+
+   faq
+
 Contribute
 ----------
 
