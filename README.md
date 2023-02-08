@@ -341,6 +341,20 @@ To cite this repository:
 
 - [Sun, Y., Wang, Y., Jin, Y., Chan, D., & Koehler, J. (2017). Geo-level Bayesian Hierarchical Media Mix Modeling.](https://research.google/pubs/pub46000/)
 
+## Support
+
+As LMMM is not an official Google product, the LMMM team can only offer limited support. 
+
+For **questions about methodology**, please refer to the References section or to the [FAQ page](https://lightweight-mmm.readthedocs.io/en/latest/faq.html).
+
+For **issues installing or using LMMM**, feel free to post them in the Discussions or Issues tabs of the Github repository. The LMMM team responds to these questions in our free time, so we unfortunately cannot guarantee a timely response. We also encourage the community to share tips and advice with each other here!
+
+For **feature requests**, please post them to the Discussions tab of the Github repository. We have an internal roadmap for LMMM development but do pay attention to feature requests and appreciate them!
+
+For **bug reports**, please post them to the Issues tab of the Github repository. If/when we are able to address them, we will let you know in the comments to your issue.
+
+**Pull requests** are appreciated but are very difficult for us to merge since the code in this repository is linked to Google internal systems and has to pass internal review. If you submit a pull request and we have resources to help merge it, we will reach out to you about this!
+
 ## Community Spotlight
 
 - [How To Create A Marketing Mix Model With LightweightMMM](https://forecastegy.com/posts/how-to-create-a-marketing-mix-model-with-lightweightmmm/) by Mario Filho.
