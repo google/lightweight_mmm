@@ -407,9 +407,9 @@ def check_data_quality(
                      "length of extra_features_names.")
 
   if channel_names is None:
-    all_feature_names = [f"feature_{i}" for i in range(media_data.shape[1])]
+    all_features_names = [f"feature_{i}" for i in range(media_data.shape[1])]
   else:
-    all_feature_names = list(channel_names)
+    all_features_names = list(channel_names)
 
   if geo_names is None:
     geo_names = [
@@ -418,32 +418,33 @@ def check_data_quality(
 
   # Spend fractions are computed for the media channels only, so we run this
   # before concatentating the extra_features_names.
-  spend_fractions = _compute_spend_fractions(cost_data, all_feature_names)
+  spend_fractions = _compute_spend_fractions(cost_data, all_features_names)
 
   if extra_features_data is not None:
-    all_feature_data = jnp.concatenate([media_data, extra_features_data],
-                                       axis=1)
+    all_features_data = jnp.concatenate(
+        [media_data, extra_features_data], axis=1
+    )
     if extra_features_names is None:
-      extra_feature_names = [
+      extra_features_names = [
           f"extra_feature_{i}" for i in range(extra_features_data.shape[1])
       ]
-    all_feature_names += list(extra_feature_names)
+    all_features_names += list(extra_features_names)
   else:
-    all_feature_data = jnp.array(media_data)
+    all_features_data = jnp.array(media_data)
 
   correlations = _compute_correlations(
-      features=all_feature_data,
+      features=all_features_data,
       target=target_data,
-      feature_names=all_feature_names)
+      feature_names=all_features_names)
 
   variance_inflation_factors = _compute_variance_inflation_factors(
-      features=all_feature_data,
-      feature_names=all_feature_names,
+      features=all_features_data,
+      feature_names=all_features_names,
       geo_names=geo_names)
 
   variances = _compute_variances(
-      features=all_feature_data,
-      feature_names=all_feature_names,
+      features=all_features_data,
+      feature_names=all_features_names,
       geo_names=geo_names)
 
   # TODO(): clean up output list

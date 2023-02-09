@@ -876,17 +876,61 @@ class PreprocessingTest(parameterized.TestCase):
           testcase_name="geo_data",
           features=_GEO_DATA_FOR_TESTS,
           geo_names=["geo_0"],
-      )
+      ),
   ])
   def test_compute_variances_raises_error_for_incorrect_number_of_geo_names(
-      self, features, geo_names):
+      self, features, geo_names
+  ):
     features = jnp.array(features)
     feature_names = [f"feature_{i}" for i in range(features.shape[1])]
-    expected_message = ("The number of geos in features does not match the "
-                        "length of geo_names")
+    expected_message = (
+        "The number of geos in features does not match the length of geo_names"
+    )
     with self.assertRaisesRegex(ValueError, expected_message):
       preprocessing._compute_variances(
-          features=features, feature_names=feature_names, geo_names=geo_names)
+          features=features, feature_names=feature_names, geo_names=geo_names
+      )
+
+  @parameterized.named_parameters([
+      dict(
+          testcase_name="default_names",
+          extra_features_names=[
+              "extra_feature_0",
+              "extra_feature_1",
+              "extra_feature_2",
+          ],
+      ),
+      dict(
+          testcase_name="custom_names",
+          extra_features_names=[
+              "my_feature_A",
+              "my_feature_1",
+              "my_feature_gamma",
+          ],
+      ),
+  ])
+  def test_check_data_quality_propagates_extra_features_names_into_output(
+      self, extra_features_names
+  ):
+    correlations, variances, _, variance_inflation_factors = (
+        preprocessing.check_data_quality(
+            media_data=jnp.ones([3, 3]),
+            extra_features_data=jnp.ones([3, 3]),
+            extra_features_names=extra_features_names,
+            target_data=jnp.ones(3),
+            channel_names=["channel_one", "channel_two", "channel_three"],
+            cost_data=jnp.ones(3),
+        )
+    )
+
+    self.assertContainsSubset(
+        extra_features_names, correlations[0].index.to_list()
+    )
+    self.assertContainsSubset(extra_features_names, variances.index.to_list())
+    self.assertContainsSubset(
+        extra_features_names, variance_inflation_factors.index.to_list()
+    )
+
 
 if __name__ == "__main__":
   absltest.main()
