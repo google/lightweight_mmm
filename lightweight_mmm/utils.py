@@ -267,7 +267,7 @@ def dataframe_to_jax(
   else:
     cost_data = jnp.dot(
         jnp.full(len(dataframe), 1), dataframe[media_features].values)
-  return (media_features_data, extra_features_data, target_data, cost_data)
+  return (media_features_data, extra_features_data, target_data, cost_data)# jax-ndarray
 
 
 def get_halfnormal_mean_from_scale(scale: float) -> float:

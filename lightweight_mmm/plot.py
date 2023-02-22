@@ -365,7 +365,7 @@ def create_media_baseline_contribution_df(
   return contribution_df
 
 
-def plot_response_curves(
+def plot_response_curves(# jax-ndarray
     media_mix_model: lightweight_mmm.LightweightMMM,
     media_scaler: Optional[preprocessing.CustomScaler] = None,
     target_scaler: Optional[preprocessing.CustomScaler] = None,

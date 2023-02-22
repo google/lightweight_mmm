@@ -150,7 +150,7 @@ def _adstock(
       lag_weight: Union[float, jnp.ndarray] = lag_weight,
   ) -> jnp.ndarray:
     adstock_value = prev_adstock * lag_weight + data
-    return adstock_value, adstock_value
+    return adstock_value, adstock_value# jax-ndarray
 
   _, adstock_values = jax.lax.scan(
       f=adstock_internal, init=data[0, ...], xs=data[1:, ...])
