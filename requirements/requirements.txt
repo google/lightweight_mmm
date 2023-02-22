@@ -13,7 +13,7 @@
 # limitations under the License.
 
 absl-py
-arviz==0.11.2
+arviz>=0.11.2
 immutabledict>=2.0.0
 jax>=0.3.18
 jaxlib>=0.3.18
@@ -26,4 +26,3 @@ seaborn==0.11.1
 scikit-learn
 statsmodels>=0.13.0
 tensorflow>=2.7.2
-typing_extensions;python_version<'3.8'
