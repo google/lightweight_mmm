@@ -389,7 +389,7 @@ class LightweightMMM:
     self._seasonality_frequency = seasonality_frequency
     self._weekday_seasonality = weekday_seasonality
     self.media = media
-    self._extra_features = extra_features
+    self._extra_features = extra_features# jax-devicearray
     self._mcmc = mcmc
     logging.info("Model has been fitted")
 
