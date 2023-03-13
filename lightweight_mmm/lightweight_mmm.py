@@ -143,21 +143,21 @@ class LightweightMMM:
   model_name: str = "hill_adstock"
   n_media_channels: int = dataclasses.field(init=False, repr=False)
   n_geos: int = dataclasses.field(init=False, repr=False)
-  media: jnp.DeviceArray = dataclasses.field(
+  media: jax.Array = dataclasses.field(
       init=False, repr=False, hash=False, compare=True)
   media_names: Sequence[str] = dataclasses.field(
       init=False, repr=False, hash=False, compare=True)
-  trace: Dict[str, jnp.DeviceArray] = dataclasses.field(
+  trace: Dict[str, jax.Array] = dataclasses.field(
       init=False, repr=False, hash=False, compare=False)
   custom_priors: MutableMapping[str, Prior] = dataclasses.field(
       init=False, repr=False, hash=False, compare=True)
   _degrees_seasonality: int = dataclasses.field(init=False, repr=False)
   _weekday_seasonality: bool = dataclasses.field(init=False, repr=False)
-  _media_prior: jnp.DeviceArray = dataclasses.field(
+  _media_prior: jax.Array = dataclasses.field(
       init=False, repr=False, hash=False, compare=True)
-  _extra_features: jnp.DeviceArray = dataclasses.field(
+  _extra_features: jax.Array = dataclasses.field(
       init=False, repr=False, hash=False, compare=True)
-  _target: jnp.DeviceArray = dataclasses.field(
+  _target: jax.Array = dataclasses.field(
       init=False, repr=False, hash=False, compare=True)
   _train_media_size: int = dataclasses.field(
       init=False, repr=False, hash=True, compare=False)
