@@ -1,3 +1,17 @@
+## Importing
+
+*What do I do if I get a numpy ImportError when importing lightweight_mmm?*
+If you get an error like:
+
+```{python}
+ImportError: numpy.core.multiarray failed to import
+```
+
+Then this probably means you have the wrong version of numpy. 
+The correct version should be installed by pip when you install lightweight_mmm, but often this error happens when you are using Google Colab or a Jupyter notebook and installing directly from a notebook cell. 
+To resolve this, make sure you have restarted your Google Colab / Jupyter session after running `!pip install lightwight_mmm`.
+This makes sure you have the newly installed version of numpy imported.
+
 ## Input
 *Which media channel metrics can be used as input?* 
 

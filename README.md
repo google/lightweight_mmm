@@ -78,6 +78,8 @@ If you want to use the most recent and slightly less stable version you can inst
 
 `pip install --upgrade git+https://github.com/google/lightweight_mmm.git`
 
+**If you are using Google Colab, make sure you restart the runtime after installing.**
+
 ### Preparing the data
 Here we use simulated data but it is assumed you have your data cleaned at this
 point. The necessary data will be:
