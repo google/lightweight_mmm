@@ -353,8 +353,12 @@ def media_mix_model(
           name="geo_media_plate",
           size=n_geos,
           dim=-1):
+        # Corrects the mean to be the same as in the channel only case.
+        normalisation_factor = jnp.sqrt(2.0 / jnp.pi)
         coef_media = numpyro.sample(
-            name="coef_media", fn=dist.HalfNormal(scale=coef_media))
+            name="coef_media",
+            fn=dist.HalfNormal(scale=coef_media * normalisation_factor)
+        )
 
   with numpyro.plate(name=f"{_GAMMA_SEASONALITY}_sin_cos_plate", size=2):
     with numpyro.plate(name=f"{_GAMMA_SEASONALITY}_plate",
