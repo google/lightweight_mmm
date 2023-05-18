@@ -455,12 +455,8 @@ class LightweightMmmTest(parameterized.TestCase):
       self.assertNotEqual(carryover_mmm, other_mmm)
 
   @parameterized.named_parameters([
-      dict(
-          testcase_name="national_mmm",
-          media_mix_model="national_mmm"),
-      dict(
-          testcase_name="geo_mmm",
-          media_mix_model="geo_mmm"),
+      dict(testcase_name="national_mmm", media_mix_model="national_mmm"),
+      dict(testcase_name="geo_mmm", media_mix_model="geo_mmm"),
   ])
   def test_fitted_mmm_does_not_equal_default_mmm(self, media_mix_model):
     default_mmm_object = lightweight_mmm.LightweightMMM()

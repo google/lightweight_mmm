@@ -96,17 +96,18 @@ def _compare_equality_for_lmmm(item_1: Any, item_2: Any) -> bool:
     is_equal = False
   elif isinstance(item_1, str):
     is_equal = item_1 == item_2
-  elif isinstance(item_1, (jax.Array, np.ndarray, Sequence)):
-    if all(isinstance(x, str) for x in item_1) and all(
-        isinstance(x, str) for x in item_2):
-      is_equal = item_1 == item_2
-    else:
-      is_equal = np.array_equal(item_1, item_2, equal_nan=True)
+  elif isinstance(item_1, (jax.Array, np.ndarray)) or (
+      isinstance(item_1, Sequence)
+      and not all(isinstance(x, str) for x in item_1)
+  ):
+    is_equal = np.array_equal(item_1, item_2, equal_nan=True)
   elif isinstance(item_1, MutableMapping):
-    is_equal = all([
-        _compare_equality_for_lmmm(item_1[x], item_2[x])
-        for x in item_1.keys() | item_2.keys()
-    ])
+    is_equal = all(
+        [
+            _compare_equality_for_lmmm(item_1[x], item_2[x])
+            for x in item_1.keys() | item_2.keys()
+        ]
+    )
   else:
     is_equal = item_1 == item_2
 
