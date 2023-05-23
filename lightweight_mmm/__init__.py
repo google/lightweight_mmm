@@ -17,4 +17,4 @@
 Detailed documentation and examples can be found in the
 [Github repository](https://github.com/google/lightweight_mmm).
 """
-__version__ = "0.1.8"
+__version__ = "0.1.9"
