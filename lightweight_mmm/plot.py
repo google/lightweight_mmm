@@ -1318,7 +1318,7 @@ def plot_prior_and_posterior(
 
   number_of_subplots = int(
       sum([
-          np.product(media_mix_model.trace[x].shape[1:]) for x in features
+          np.prod(media_mix_model.trace[x].shape[1:]) for x in features
       ]))
 
   if not fig_size:
