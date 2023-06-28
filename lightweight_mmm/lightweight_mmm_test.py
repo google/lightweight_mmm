@@ -21,6 +21,7 @@ from absl.testing import parameterized
 import jax.numpy as jnp
 import numpy as np
 import numpyro.distributions as dist
+import pandas as pd
 
 from lightweight_mmm import lightweight_mmm
 from lightweight_mmm import models
@@ -462,6 +463,20 @@ class LightweightMmmTest(parameterized.TestCase):
     default_mmm_object = lightweight_mmm.LightweightMMM()
     fitted_mmm_object = getattr(self, media_mix_model)
     self.assertNotEqual(default_mmm_object, fitted_mmm_object)
+
+  def test_equality_function_works_with_media_names_as_pandas_index(self):
+    mmm_object = lightweight_mmm.LightweightMMM()
+    mmm_object.fit(
+        media=jnp.ones((50, 5)),
+        target=jnp.ones(50),
+        media_prior=jnp.ones(5) * 50,
+        extra_features=jnp.ones((50, 2)),
+        number_warmup=2,
+        number_samples=4,
+        number_chains=1,
+        media_names=pd.Index([f'channel_{i}' for i in range(5)]))
+
+    self.assertEqual(mmm_object, mmm_object)
 
 if __name__ == "__main__":
   absltest.main()

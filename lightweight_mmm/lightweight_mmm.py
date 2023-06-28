@@ -374,7 +374,7 @@ class LightweightMMM:
 
     self.custom_priors = custom_priors
     if media_names is not None:
-      self.media_names = media_names
+      self.media_names = list(media_names)
     else:
       self.media_names = [f"channel_{i}" for i in range(media.shape[1])]
     self.n_media_channels = media.shape[1]
