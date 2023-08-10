@@ -28,15 +28,17 @@ from lightweight_mmm import preprocessing
     jax.jit,
     static_argnames=("media_mix_model", "media_input_shape", "target_scaler",
                      "media_scaler"))
-def _objective_function(extra_features: jnp.ndarray,
-                        media_mix_model: lightweight_mmm.LightweightMMM,
-                        media_input_shape: Tuple[int,
-                                                 int], media_gap: Optional[int],
-                        target_scaler: Optional[preprocessing.CustomScaler],
-                        media_scaler: preprocessing.CustomScaler,
-                        geo_ratio: jnp.array,
-                        seed: Optional[int],
-                        media_values: jnp.ndarray) -> jnp.float64:
+def _objective_function(
+    extra_features: jnp.ndarray,
+    media_mix_model: lightweight_mmm.LightweightMMM,
+    media_input_shape: Tuple[int, int],
+    media_gap: Optional[int],
+    target_scaler: Optional[preprocessing.CustomScaler],
+    media_scaler: preprocessing.CustomScaler,
+    geo_ratio: jnp.ndarray,
+    seed: Optional[int],
+    media_values: jnp.ndarray,
+) -> jnp.float64:
   """Objective function to calculate the sum of all predictions of the model.
 
   Args:

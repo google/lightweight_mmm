@@ -668,10 +668,11 @@ def _create_shaded_line_plot(predictions: jnp.ndarray,
 
 
 def _call_fit_plotter(
-    predictions: jnp.array,
-    target: jnp.array,
+    predictions: jnp.ndarray,
+    target: jnp.ndarray,
     interval_mid_range: float,
-    digits: int) -> matplotlib.figure.Figure:
+    digits: int,
+) -> matplotlib.figure.Figure:
   """Calls the shaded line plot once for national and N times for geo models.
 
   Args:
