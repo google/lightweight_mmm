@@ -290,8 +290,8 @@ def media_mix_model(
     custom_priors: MutableMapping[str, Prior],
     transform_kwargs: Optional[MutableMapping[str, Any]] = None,
     weekday_seasonality: bool = False,
-    extra_features: Optional[jnp.array] = None
-    ) -> None:
+    extra_features: Optional[jnp.ndarray] = None,
+) -> None:
   """Media mix model.
 
   Args:
