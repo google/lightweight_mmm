@@ -189,7 +189,7 @@ def _split_array_into_list(
   feature_array = jnp.stack(array_list_by_level)
   if national_model_flag:
     feature_array = jnp.squeeze(feature_array, axis=2)
-  return feature_array
+  return feature_array# jnp-type
 
 
 def dataframe_to_jax(
@@ -259,7 +259,7 @@ def dataframe_to_jax(
       split_level_feature=date_feature,
       features=[target],
       national_model_flag=national_model_flag)
-  target_data = jnp.squeeze(target_data)
+  target_data = jnp.squeeze(target_data)# jnp-type
 
   if cost_features:
     cost_data = jnp.dot(
