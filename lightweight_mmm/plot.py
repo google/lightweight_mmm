@@ -870,7 +870,7 @@ def plot_bars_media_metrics(
       fmt="none",
       c="black")
   ax.set_xticks(range(len(channel_names)))
-  ax.set_xticklabels(channel_names, rotation=45)
+  ax.set_xticklabels(channel_names, rotation=60, ha="right", rotation_mode="anchor")
   fig.suptitle(
       f"Estimated media channel {metric_name}. \n Error bars show "
       f"{np.round(lower_quantile, 2)} - {np.round(upper_quantile, 2)} "
