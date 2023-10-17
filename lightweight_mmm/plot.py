@@ -873,7 +873,7 @@ def plot_bars_media_metrics(
       "credibility interval."
     }
 
-  fig, ax = plt.subplots(*plot_config["fixsize"])
+  fig, ax = plt.subplots(*plot_config["figsize"])
   sns.barplot(data=metric, ci=None, ax=ax)
   quantile_bounds = np.quantile(
       metric, q=[lower_quantile, upper_quantile], axis=0)
