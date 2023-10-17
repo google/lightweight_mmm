@@ -19,7 +19,7 @@ import logging
 
 # Using these types from typing instead of their generic types in the type hints
 # in order to be compatible with Python 3.7 and 3.8.
-from typing import Any, List, Optional, Sequence, Tuple
+from typing import Any, List, MutableMapping, Optional, Sequence, Tuple
 
 import arviz
 import jax
@@ -831,7 +831,8 @@ def plot_bars_media_metrics(
     metric: jnp.ndarray,
     metric_name: str = "metric",
     channel_names: Optional[Tuple[Any]] = None,
-    interval_mid_range: float = .9) -> matplotlib.figure.Figure:
+    interval_mid_range: float = .9,
+    plot_config: Optional[MutableMapping[str, Any]] = None) -> matplotlib.figure.Figure:
   """Plots a barchart of estimated media effects with their percentile interval.
 
   The lower and upper percentile need to be between 0-1.
@@ -844,6 +845,7 @@ def plot_bars_media_metrics(
     channel_names: Names of media channels to be added to plot.
     interval_mid_range: Mid range interval to take for plotting. Eg. .9 will use
       .05 and .95 as the lower and upper quantiles. Must be a float number.
+    plot_config: Dictionary for optionally configuring the barplots.
 
   Returns:
     Barplot of estimated media effects with defined percentile-bars.
@@ -856,7 +858,22 @@ def plot_bars_media_metrics(
   if metric.ndim == 3:
     metric = jnp.mean(metric, axis=-1)
 
-  fig, ax = plt.subplots(1, 1)
+  if plot_config is None:
+    plot_config = {
+      "figsize": [1, 1],
+      "xticks": range(len(channel_names)),
+      "xticklabels": {
+        "labels": channel_names,
+        "rotation": 60,
+        "ha": "right",
+        "rotation_mode": "anchor",
+      },
+      "suptitle": f"Estimated media channel {metric_name}. \n Error bars show "
+      f"{np.round(lower_quantile, 2)} - {np.round(upper_quantile, 2)} "
+      "credibility interval."
+    }
+
+  fig, ax = plt.subplots(*plot_config["fixsize"])
   sns.barplot(data=metric, ci=None, ax=ax)
   quantile_bounds = np.quantile(
       metric, q=[lower_quantile, upper_quantile], axis=0)
@@ -869,13 +886,9 @@ def plot_bars_media_metrics(
       yerr=quantile_bounds,
       fmt="none",
       c="black")
-  ax.set_xticks(range(len(channel_names)))
-  ax.set_xticklabels(channel_names, rotation=60, ha="right", rotation_mode="anchor")
-  fig.suptitle(
-      f"Estimated media channel {metric_name}. \n Error bars show "
-      f"{np.round(lower_quantile, 2)} - {np.round(upper_quantile, 2)} "
-      "credibility interval."
-  )
+  ax.set_xticks(plot_config["xticks"])
+  ax.set_xticklabels(**plot_config["xticks"])
+  fig.suptitle(plot_config["suptitle"])
   plt.close()
   return fig
 
