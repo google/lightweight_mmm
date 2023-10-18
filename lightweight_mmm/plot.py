@@ -971,7 +971,7 @@ def plot_pre_post_budget_allocation_comparison(
         textcoords="offset points")
 
   axes[0].set_xticks(x_axis)
-  axes[0].set_xticklabels(channel_names, fontsize="medium")
+  axes[0].set_xticklabels(channel_names, fontsize="medium", rotation=60, ha="right", rotation_mode="anchor")
   axes[0].legend(fontsize="medium")
 
   plots3 = axes[1].bar([
