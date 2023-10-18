@@ -928,7 +928,7 @@ def plot_pre_post_budget_allocation_comparison(
     previous_budget_allocation: Starting budget allocation based on original
       budget allocation proportion.
     channel_names: Names of media channels to be added to plot.
-    fig_size: Size of the figure to plot as used by matplotlib.
+    fig_size: size of the plot.
 
   Returns:
     Barplots of budget allocation across media channels pre & post optimization.
@@ -977,7 +977,7 @@ def plot_pre_post_budget_allocation_comparison(
         (bar.get_x() + bar.get_width() / 2, bar.get_height()),
         ha="center",
         va="center",
-        size=12,
+        size=10,
         xytext=(0, 8),
         textcoords="offset points",
     )
@@ -990,40 +990,38 @@ def plot_pre_post_budget_allocation_comparison(
         (bar.get_x() + bar.get_width() / 2, bar.get_height()),
         ha="center",
         va="center",
-        size=12,
+        size=10,
         xytext=(0, 8),
-        textcoords="offset points")
+        textcoords="offset points",
+    )
+
   axes[0].set_ylim(
       min(previous_budget_allocation) - min(previous_budget_allocation)*0.1,
       max(previous_budget_allocation)*1.1 + min(previous_budget_allocation) * 0.1
   )
   axes[0].set_xticks(x_axis)
-  axes[0].set_xticklabels(
-    channel_names,
-    fontsize="large",
-    rotation=45,
-    ha="right",
-    rotation_mode="anchor",
-  )
+  axes[0].set_xticklabels(channel_names, fontsize="medium", rotation=60, ha="right", rotation_mode="anchor")
   axes[0].legend(fontsize="medium")
 
-  plots3 = axes[1].bar([
-      "pre optimization predicted target",
-      "post optimization predicted target"
-  ], predictions)
+  plots3 = axes[1].bar(
+      [
+        "pre optimization predicted target",
+        "post optimization predicted target"
+      ],
+      predictions
+  )
   axes[1].set_ylim(
       min(predictions) - min(predictions) * 0.1,
-      max(predictions) + min(predictions) * 0.1
-  )
+      max(predictions) + min(predictions) * 0.1)
   axes[1].set_ylabel("Predicted Target Variable", fontsize="x-large")
   axes[1].set_title("Pre Post Optimization Target Variable Comparison", fontsize="x-large")
   axes[1].set_xticks(range(2))
   axes[1].set_xticklabels(
-    [
-      "pre optimization predicted target",
-      "post optimization predicted target"
-    ],
-    fontsize="x-large"
+      [
+        "pre optimization predicted target",
+        "post optimization predicted target"
+      ],
+      fontsize="x-large",
   )
 
   # Iterrating over the bars one-by-one.
@@ -1036,8 +1034,8 @@ def plot_pre_post_budget_allocation_comparison(
         va="center",
         size=10,
         xytext=(0, 8),
-        textcoords="offset points",
-  )
+        textcoords="offset points"
+    )
 
   plt.tight_layout()
   plt.close()
