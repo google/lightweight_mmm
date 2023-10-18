@@ -938,10 +938,8 @@ def plot_pre_post_budget_allocation_comparison(
     raise lightweight_mmm.NotFittedModelError(
         "Model needs to be fit first before attempting to plot its fit.")
 
-  previous_budget_allocation_pct = previous_budget_allocation / jnp.sum(
-      previous_budget_allocation)
-  optimized_budget_allocation_pct = optimal_buget_allocation / jnp.sum(
-      optimal_buget_allocation)
+  previous_budget_allocation_pct = previous_budget_allocation / jnp.sum(previous_budget_allocation)
+  optimized_budget_allocation_pct = optimal_buget_allocation / jnp.sum(optimal_buget_allocation)
 
   if channel_names is None:
     channel_names = media_mix_model.media_names
@@ -950,7 +948,8 @@ def plot_pre_post_budget_allocation_comparison(
   pre_optimizaiton_predicted_target = kpi_without_optim * -1
   post_optimization_predictiond_target = kpi_with_optim * -1
   predictions = [
-      pre_optimizaiton_predicted_target, post_optimization_predictiond_target
+      pre_optimizaiton_predicted_target,
+      post_optimization_predictiond_target,
   ]
 
   # Create bar chart.
@@ -960,16 +959,16 @@ def plot_pre_post_budget_allocation_comparison(
       x_axis - 0.2,
       previous_budget_allocation,
       width=0.4,
-      label="previous budget allocation")
+      label="previous budget allocation",
+  )
   plots2 = axes[0].bar(
       x_axis + 0.2,
       optimal_buget_allocation,
       width=0.4,
-      label="optimized budget allocation")
+      label="optimized budget allocation",
+  )
   axes[0].set_ylabel("Budget Allocation", fontsize="x-large")
-  axes[0].set_title(
-      "Before and After Optimization Budget Allocation Comparison",
-      fontsize="x-large")
+  axes[0].set_title("Before and After Optimization Budget Allocation Comparison", fontsize="x-large")
   # Iterrating over the bars one-by-one.
   for bar_i in range(len(plots1.patches)):
     bar = plots1.patches[bar_i]
@@ -980,7 +979,8 @@ def plot_pre_post_budget_allocation_comparison(
         va="center",
         size=12,
         xytext=(0, 8),
-        textcoords="offset points")
+        textcoords="offset points",
+    )
 
   # Iterrating over the bars one-by-one.
   for bar_i in range(len(plots2.patches)):
@@ -1013,16 +1013,18 @@ def plot_pre_post_budget_allocation_comparison(
   ], predictions)
   axes[1].set_ylim(
       min(predictions) - min(predictions) * 0.1,
-      max(predictions) + min(predictions) * 0.1)
+      max(predictions) + min(predictions) * 0.1
+  )
   axes[1].set_ylabel("Predicted Target Variable", fontsize="x-large")
-  axes[1].set_title(
-      "Pre Post Optimization Target Variable Comparison", fontsize="x-large")
+  axes[1].set_title("Pre Post Optimization Target Variable Comparison", fontsize="x-large")
   axes[1].set_xticks(range(2))
-  axes[1].set_xticklabels([
+  axes[1].set_xticklabels(
+    [
       "pre optimization predicted target",
       "post optimization predicted target"
-  ],
-                          fontsize="x-large")
+    ],
+    fontsize="x-large"
+  )
 
   # Iterrating over the bars one-by-one.
   for bar_i in range(len(plots3.patches)):
@@ -1034,7 +1036,8 @@ def plot_pre_post_budget_allocation_comparison(
         va="center",
         size=10,
         xytext=(0, 8),
-        textcoords="offset points")
+        textcoords="offset points",
+  )
 
   plt.tight_layout()
   plt.close()
