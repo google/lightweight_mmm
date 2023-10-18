@@ -990,12 +990,21 @@ def plot_pre_post_budget_allocation_comparison(
         (bar.get_x() + bar.get_width() / 2, bar.get_height()),
         ha="center",
         va="center",
-        size=10,
+        size=12,
         xytext=(0, 8),
         textcoords="offset points")
-
+  axes[0].set_ylim(
+      min(previous_budget_allocation) - min(previous_budget_allocation)*0.1,
+      max(previous_budget_allocation)*1.1 + min(previous_budget_allocation) * 0.1
+  )
   axes[0].set_xticks(x_axis)
-  axes[0].set_xticklabels(channel_names, fontsize="medium")
+  axes[0].set_xticklabels(
+    channel_names,
+    fontsize="large",
+    rotation=45,
+    ha="right",
+    rotation_mode="anchor",
+  )
   axes[0].legend(fontsize="medium")
 
   plots3 = axes[1].bar([
