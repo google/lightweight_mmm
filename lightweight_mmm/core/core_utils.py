@@ -72,5 +72,5 @@ def apply_exponent_safe(data: jnp.ndarray,
   Returns:
     The result of the exponent operation with the inputs provided.
   """
-  exponent_safe = jnp.where(condition=(data == 0), x=1, y=data)**exponent
-  return jnp.where(condition=(data == 0), x=0, y=exponent_safe)
+  exponent_safe = jnp.where(data == 0, 1, data) ** exponent
+  return jnp.where(data == 0, 0, exponent_safe)

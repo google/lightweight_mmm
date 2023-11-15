@@ -45,7 +45,7 @@ def _hill(
   """
   save_transform = core_utils.apply_exponent_safe(
       data=data / half_max_effective_concentration, exponent=-slope)
-  return jnp.where(save_transform == 0, x=0, y=1. / (1 + save_transform))
+  return jnp.where(save_transform == 0, 0, 1.0 / (1 + save_transform))
 
 
 def hill(
