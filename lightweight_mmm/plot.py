@@ -81,7 +81,8 @@ def _generate_diagonal_predictions(
     extra_features: Optional[jnp.ndarray],
     target_scaler: Optional[preprocessing.CustomScaler],
     prediction_offset: jnp.ndarray,
-    seed: Optional[int]):
+    seed: Optional[int]
+) -> jax.Array:
   """Generates predictions for one value per channel leaving the rest to zero.
 
   This function does the following steps:
@@ -125,7 +126,10 @@ def _generate_diagonal_predictions(
   return predictions
 
 
-def _calculate_number_rows_plot(n_media_channels: int, n_columns: int):
+def _calculate_number_rows_plot(
+    n_media_channels: int,
+    n_columns: int
+) -> int:
   """Calculates the number of rows of plots needed to fit n + 1 plots in n_cols.
 
   Args:
@@ -142,7 +146,8 @@ def _calculate_number_rows_plot(n_media_channels: int, n_columns: int):
 
 
 def _calculate_media_contribution(
-    media_mix_model: lightweight_mmm.LightweightMMM) -> jnp.ndarray:
+    media_mix_model: lightweight_mmm.LightweightMMM
+) -> jnp.ndarray:
   """Computes contribution for each sample, time, channel.
 
   Serves as a helper function for making predictions for each channel, time
@@ -183,7 +188,8 @@ def create_attribution_over_spend_fractions(
     media_mix_model: lightweight_mmm.LightweightMMM,
     media_spend: jnp.ndarray,
     channel_names: Optional[Sequence[str]] = None,
-    time_index: Optional[Tuple[int, int]] = None) -> pd.DataFrame:
+    time_index: Optional[Tuple[int, int]] = None
+) -> pd.DataFrame:
   """Creates a dataframe for media attribution over spend.
 
   The output dataframe will be used to create media attribution and spend
@@ -251,7 +257,8 @@ def create_attribution_over_spend_fractions(
 def create_media_baseline_contribution_df(
     media_mix_model: lightweight_mmm.LightweightMMM,
     target_scaler: Optional[preprocessing.CustomScaler] = None,
-    channel_names: Optional[Sequence[str]] = None) -> pd.DataFrame:
+    channel_names: Optional[Sequence[str]] = None
+) -> pd.DataFrame:
   """Creates a dataframe for weekly media channels & basline contribution.
 
   The output dataframe will be used to create a stacked area plot to visualize
@@ -374,11 +381,12 @@ def plot_response_curves(# jax-ndarray
     steps: int = 50,
     percentage_add: float = 0.2,
     apply_log_scale: bool = False,
-    figure_size: Tuple[int, int] = (8, 10),
+    fig_size: Tuple[int, int] = (8, 10),
     n_columns: int = 3,
     marker_size: int = 8,
     legend_fontsize: int = 8,
-    seed: Optional[int] = None) -> matplotlib.figure.Figure:
+    seed: Optional[int] = None
+) -> matplotlib.figure.Figure:
   """Plots the response curves of each media channel based on the model.
 
   It plots an individual subplot for each media channel. If '
@@ -407,9 +415,9 @@ def plot_response_curves(# jax-ndarray
     apply_log_scale: Whether to apply the log scale to the predictions (Y axis).
       When some media channels have very large scale compare to others it might
       be useful to use apply_log_scale=True. Default is False.
-    figure_size: Size of the plot figure.
+    fig_size: Size of the figure to plot as used by matplotlib.
     n_columns: Number of columns to display in the subplots grid. Modifying this
-      parameter might require to adjust figure_size accordingly for the plot
+      parameter might require to adjust fig_size accordingly for the plot
       to still have reasonable structure.
     marker_size: Size of the marker for the optimization annotations. Only
       useful if optimal_allocation_per_timeunit is not None. Default is 8.
@@ -504,7 +512,7 @@ def plot_response_curves(# jax-ndarray
 
   kpi_label = "KPI" if target_scaler else "Normalized KPI"
   fig = plt.figure(media_mix_model.n_media_channels + 1,
-                   figsize=figure_size,
+                   figsize=fig_size,
                    tight_layout=True)
   n_rows = _calculate_number_rows_plot(
       n_media_channels=media_mix_model.n_media_channels, n_columns=n_columns)
@@ -550,9 +558,11 @@ def plot_response_curves(# jax-ndarray
   return fig
 
 
-def plot_cross_correlate(feature: jnp.ndarray,
-                         target: jnp.ndarray,
-                         maxlags: int = 10) -> Tuple[int, float]:
+def plot_cross_correlate(
+    feature: jnp.ndarray,
+    target: jnp.ndarray,
+    maxlags: int = 10
+) -> Tuple[int, float]:
   """Plots the cross correlation coefficients between 2 vectors.
 
   In the chart look for positive peaks, this shows how the lags of the feature
@@ -580,8 +590,10 @@ def plot_cross_correlate(feature: jnp.ndarray,
   return plot[0][maxidx], plot[1][maxidx]
 
 
-def plot_var_cost(media: jnp.ndarray, costs: jnp.ndarray,
-                  names: List[str]) -> matplotlib.figure.Figure:
+def plot_var_cost(
+    media: jnp.ndarray, costs: jnp.ndarray,
+    names: List[str]
+) -> matplotlib.figure.Figure:
   """Plots a a chart between the coefficient of variation and cost.
 
   Args:
@@ -707,10 +719,13 @@ def _call_fit_plotter(
   return figure
 
 
-def plot_model_fit(media_mix_model: lightweight_mmm.LightweightMMM,
-                   target_scaler: Optional[preprocessing.CustomScaler] = None,
-                   interval_mid_range: float = .9,
-                   digits: int = 3) -> matplotlib.figure.Figure:
+def plot_model_fit(
+    media_mix_model: lightweight_mmm.LightweightMMM,
+    target_scaler: Optional[preprocessing.CustomScaler] = None,
+    interval_mid_range: float = .9,
+    digits: int = 3,
+    **kwargs
+) -> matplotlib.figure.Figure:
   """Plots the ground truth, predicted value and interval for the training data.
 
   Model needs to be fit before calling this function to plot.
@@ -743,10 +758,13 @@ def plot_model_fit(media_mix_model: lightweight_mmm.LightweightMMM,
       digits=digits)
 
 
-def plot_out_of_sample_model_fit(out_of_sample_predictions: jnp.ndarray,
-                                 out_of_sample_target: jnp.ndarray,
-                                 interval_mid_range: float = .9,
-                                 digits: int = 3) -> matplotlib.figure.Figure:
+def plot_out_of_sample_model_fit(
+    out_of_sample_predictions: jnp.ndarray,
+    out_of_sample_target: jnp.ndarray,
+    interval_mid_range: float = .9,
+    digits: int = 3,
+    **kwargs
+) -> matplotlib.figure.Figure:
   """Plots the ground truth, predicted value and interval for the test data.
 
   Args:
@@ -773,7 +791,9 @@ def plot_media_channel_posteriors(
     media_mix_model: lightweight_mmm.LightweightMMM,
     channel_names: Optional[Sequence[Any]] = None,
     quantiles: Sequence[float] = (0.05, 0.5, 0.95),
-    fig_size: Optional[Tuple[int, int]] = None) -> matplotlib.figure.Figure:
+    fig_size: Optional[Tuple[int, int]] = None,
+    **kwargs
+) -> matplotlib.figure.Figure:
   """Plots the posterior distributions of estimated media channel effect.
 
   Model needs to be fit before calling this function to plot.
@@ -831,7 +851,10 @@ def plot_bars_media_metrics(
     metric: jnp.ndarray,
     metric_name: str = "metric",
     channel_names: Optional[Tuple[Any]] = None,
-    interval_mid_range: float = .9) -> matplotlib.figure.Figure:
+    interval_mid_range: float = .9,
+    fig_size: Tuple[int, int] = (20, 12),
+    **kwargs
+) -> matplotlib.figure.Figure:
   """Plots a barchart of estimated media effects with their percentile interval.
 
   The lower and upper percentile need to be between 0-1.
@@ -856,7 +879,7 @@ def plot_bars_media_metrics(
   if metric.ndim == 3:
     metric = jnp.mean(metric, axis=-1)
 
-  fig, ax = plt.subplots(1, 1)
+  fig, ax = plt.subplots(1, 1, figsize=fig_size)
   sns.barplot(data=metric, ci=None, ax=ax)
   quantile_bounds = np.quantile(
       metric, q=[lower_quantile, upper_quantile], axis=0)
@@ -868,12 +891,12 @@ def plot_bars_media_metrics(
       y=metric.mean(axis=0),
       yerr=quantile_bounds,
       fmt="none",
-      c="black",
-  )
-  ax.set_xticks(range(len(channel_names)))
-  ax.set_xticklabels(
-      channel_names, rotation=60, ha="right", rotation_mode="anchor"
-  )
+      c="black")
+  ax.set_xticks(kwargs.pop("xticks", range(len(channel_names))))
+  ax.set_xticklabels(kwargs.pop("xticklabels", channel_names),
+                     rotation=kwargs.pop("rotation", 45),
+                     ha=kwargs.pop("ha", "right"),
+                     rotation_mode=kwargs.pop("ratation_mode", 'anchor'))
   fig.suptitle(
       f"Estimated media channel {metric_name}. \n Error bars show "
       f"{np.round(lower_quantile, 2)} - {np.round(upper_quantile, 2)} "
@@ -890,7 +913,8 @@ def plot_pre_post_budget_allocation_comparison(
     optimal_buget_allocation: jnp.ndarray,
     previous_budget_allocation: jnp.ndarray,
     channel_names: Optional[Sequence[Any]] = None,
-    figure_size: Tuple[int, int] = (20, 10)
+    fig_size: Tuple[int, int] = (20, 10),
+    **kwargs
 ) -> matplotlib.figure.Figure:
   """Plots a barcharts to compare pre & post budget allocation.
 
@@ -904,7 +928,7 @@ def plot_pre_post_budget_allocation_comparison(
     previous_budget_allocation: Starting budget allocation based on original
       budget allocation proportion.
     channel_names: Names of media channels to be added to plot.
-    figure_size: size of the plot.
+    fig_size: size of the plot.
 
   Returns:
     Barplots of budget allocation across media channels pre & post optimization.
@@ -914,10 +938,8 @@ def plot_pre_post_budget_allocation_comparison(
     raise lightweight_mmm.NotFittedModelError(
         "Model needs to be fit first before attempting to plot its fit.")
 
-  previous_budget_allocation_pct = previous_budget_allocation / jnp.sum(
-      previous_budget_allocation)
-  optimized_budget_allocation_pct = optimal_buget_allocation / jnp.sum(
-      optimal_buget_allocation)
+  previous_budget_allocation_pct = previous_budget_allocation / jnp.sum(previous_budget_allocation)
+  optimized_budget_allocation_pct = optimal_buget_allocation / jnp.sum(optimal_buget_allocation)
 
   if channel_names is None:
     channel_names = media_mix_model.media_names
@@ -926,26 +948,27 @@ def plot_pre_post_budget_allocation_comparison(
   pre_optimizaiton_predicted_target = kpi_without_optim * -1
   post_optimization_predictiond_target = kpi_with_optim * -1
   predictions = [
-      pre_optimizaiton_predicted_target, post_optimization_predictiond_target
+      pre_optimizaiton_predicted_target,
+      post_optimization_predictiond_target,
   ]
 
   # Create bar chart.
-  fig, axes = plt.subplots(2, 1, figsize=figure_size)
+  fig, axes = plt.subplots(2, 1, figsize=fig_size)
 
   plots1 = axes[0].bar(
       x_axis - 0.2,
       previous_budget_allocation,
       width=0.4,
-      label="previous budget allocation")
+      label="previous budget allocation",
+  )
   plots2 = axes[0].bar(
       x_axis + 0.2,
       optimal_buget_allocation,
       width=0.4,
-      label="optimized budget allocation")
+      label="optimized budget allocation",
+  )
   axes[0].set_ylabel("Budget Allocation", fontsize="x-large")
-  axes[0].set_title(
-      "Before and After Optimization Budget Allocation Comparison",
-      fontsize="x-large")
+  axes[0].set_title("Before and After Optimization Budget Allocation Comparison", fontsize="x-large")
   # Iterrating over the bars one-by-one.
   for bar_i in range(len(plots1.patches)):
     bar = plots1.patches[bar_i]
@@ -956,7 +979,8 @@ def plot_pre_post_budget_allocation_comparison(
         va="center",
         size=10,
         xytext=(0, 8),
-        textcoords="offset points")
+        textcoords="offset points",
+    )
 
   # Iterrating over the bars one-by-one.
   for bar_i in range(len(plots2.patches)):
@@ -968,28 +992,37 @@ def plot_pre_post_budget_allocation_comparison(
         va="center",
         size=10,
         xytext=(0, 8),
-        textcoords="offset points")
+        textcoords="offset points",
+    )
 
+  axes[0].set_ylim(
+      min(previous_budget_allocation) - min(previous_budget_allocation)*0.1,
+      max(previous_budget_allocation)*1.1 + min(previous_budget_allocation) * 0.1
+  )
   axes[0].set_xticks(x_axis)
-  axes[0].set_xticklabels(channel_names, fontsize="medium")
+  axes[0].set_xticklabels(channel_names, fontsize="medium", rotation=60, ha="right", rotation_mode="anchor")
   axes[0].legend(fontsize="medium")
 
-  plots3 = axes[1].bar([
-      "pre optimization predicted target",
-      "post optimization predicted target"
-  ], predictions)
+  plots3 = axes[1].bar(
+      [
+        "pre optimization predicted target",
+        "post optimization predicted target"
+      ],
+      predictions
+  )
   axes[1].set_ylim(
       min(predictions) - min(predictions) * 0.1,
       max(predictions) + min(predictions) * 0.1)
   axes[1].set_ylabel("Predicted Target Variable", fontsize="x-large")
-  axes[1].set_title(
-      "Pre Post Optimization Target Variable Comparison", fontsize="x-large")
+  axes[1].set_title("Pre Post Optimization Target Variable Comparison", fontsize="x-large")
   axes[1].set_xticks(range(2))
-  axes[1].set_xticklabels([
-      "pre optimization predicted target",
-      "post optimization predicted target"
-  ],
-                          fontsize="x-large")
+  axes[1].set_xticklabels(
+      [
+        "pre optimization predicted target",
+        "post optimization predicted target"
+      ],
+      fontsize="x-large",
+  )
 
   # Iterrating over the bars one-by-one.
   for bar_i in range(len(plots3.patches)):
@@ -1001,7 +1034,8 @@ def plot_pre_post_budget_allocation_comparison(
         va="center",
         size=10,
         xytext=(0, 8),
-        textcoords="offset points")
+        textcoords="offset points"
+    )
 
   plt.tight_layout()
   plt.close()
@@ -1014,6 +1048,7 @@ def plot_media_baseline_contribution_area_plot(
     channel_names: Optional[Sequence[Any]] = None,
     fig_size: Optional[Tuple[int, int]] = (20, 7),
     legend_outside: Optional[bool] = False,
+    **kwargs,
 ) -> matplotlib.figure.Figure:
   """Plots an area chart to visualize weekly media & baseline contribution.
 
@@ -1023,6 +1058,7 @@ def plot_media_baseline_contribution_area_plot(
     channel_names: Names of media channels.
     fig_size: Size of the figure to plot as used by matplotlib.
     legend_outside: Put the legend outside of the chart, center-right.
+    **kwargs: matplotlib plot settings
 
   Returns:
     Stacked area chart of weekly baseline & media contribution.
@@ -1047,13 +1083,13 @@ def plot_media_baseline_contribution_area_plot(
   fig, ax = plt.subplots()
   contribution_df_for_plot.plot.area(
       x="period", stacked=True, figsize=fig_size, ax=ax)
-  ax.set_title("Attribution Over Time", fontsize="x-large")
+  ax.set_title(kwargs.pop("title", "Attribution Over Time"), fontsize=kwargs.pop("fontsize", "x-large"))
   ax.tick_params(axis="y")
-  ax.set_ylabel("Baseline & Media Chanels Attribution")
-  ax.set_xlabel("Period")
+  ax.set_ylabel(kwargs.pop("ylabel", "Baseline & Media Chanels Attribution"))
+  ax.set_xlabel(kwargs.pop("xlabel", "Period"))
   ax.set_xlim(1, contribution_df_for_plot["period"].max())
-  ax.set_xticks(contribution_df_for_plot["period"])
-  ax.set_xticklabels(contribution_df_for_plot["period"])
+  ax.set_xticks(kwargs.pop("xticks", contribution_df_for_plot["period"]))
+  ax.set_xticklabels(kwargs.pop("xticklabels", contribution_df_for_plot["period"]))
   # Get handles and labels for sorting.
   handles, labels = ax.get_legend_handles_labels()
   # If true, legend_outside reversed the legend and puts the legend center left,
@@ -1287,6 +1323,7 @@ def plot_prior_and_posterior(
     number_of_samples_for_prior: int = 5000,
     kde_bandwidth_adjust_for_posterior: float = 1,
     seed: Optional[int] = None,
+    **kwargs
 ) -> matplotlib.figure.Figure:
   """Plots prior and posterior distributions for parameters in media_mix_model.
 
