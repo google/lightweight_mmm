@@ -214,9 +214,9 @@ class LightweightMMM:
   def _preprocess_custom_priors(
       self,
       custom_priors: Dict[str, Prior]) -> MutableMapping[str, Prior]:
-    """Preprocesses the user input custom priors to Numpyro distributions.
+    """Preprocesses the user input custom priors to NumPyro distributions.
 
-    If numpyro distributions are given they remains untouched, however if any
+    If NumPyro distributions are given they remains untouched, however if any
     other option is passed, it is passed to the default distribution to alter
     its constructor values.
 
@@ -224,7 +224,7 @@ class LightweightMMM:
       custom_priors: Mapping of the name of the prior to its custom value.
 
     Returns:
-      A mapping of names to numpyro distributions based on user input and
+      A mapping of names to NumPyro distributions based on user input and
         default values.
     """
     default_priors = {
@@ -246,8 +246,8 @@ class LightweightMMM:
             **custom_priors[prior_name])
       elif not isinstance(custom_priors[prior_name], dist.Distribution):
         raise ValueError(
-            "Priors given must be a Numpyro distribution or one of the "
-            "following to fit in the constructor of our default Numpyro "
+            "Priors given must be a NumPyro distribution or one of the "
+            "following to fit in the constructor of our default NumPyro "
             "distribution. It could be given as args or kwargs as long as it "
             "is the correct format for such object. Please refer to our "
             "documentation on custom priors to know more.")
@@ -295,7 +295,7 @@ class LightweightMMM:
       number_chains: Number of chains to sample. Default is 2.
       target_accept_prob: Target acceptance probability for step size in the
         NUTS sampler. Default is .85.
-      init_strategy: Initialization function for numpyro NUTS. The available
+      init_strategy: Initialization function for NumPyro NUTS. The available
         options can be found in
         https://num.pyro.ai/en/stable/utilities.html#initialization-strategies.
         Default is numpyro.infer.init_to_median.
@@ -395,7 +395,7 @@ class LightweightMMM:
     logging.info("Model has been fitted")
 
   def print_summary(self) -> None:
-    """Calls print_summary function from numpyro to print parameters summary.
+    """Calls print_summary function from NumPyro to print parameters summary.
     """
     # TODO(): add name selection for print.
     self._mcmc.print_summary()
@@ -431,7 +431,7 @@ class LightweightMMM:
       frequency: Frequency of the seasonality.
       transform_function: Media transform function to use within the model.
       weekday_seasonality: Allow daily weekday estimation.
-      model: Numpyro model to use for numpyro.infer.Predictive.
+      model: NumPyro model to use for numpyro.infer.Predictive.
       posterior_samples: Mapping of the posterior samples.
       custom_priors: The custom priors we want the model to take instead of the
         default ones. Refer to the full documentation on custom priors for
