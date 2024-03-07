@@ -1,6 +1,14 @@
 <img align="left" width="120" height="120" src="https://raw.githubusercontent.com/google/lightweight_mmm/main/images/lightweight_mmm_logo_colored_250.png" alt="lightweight_mmm_logo_colored_250"></img>
 
 # Lightweight (Bayesian) Marketing Mix Modeling
+
+## New Google MMM
+
+As of 7 March 2024 Google has released a new official Bayesian MMM version called
+**Meridian**. Meridian is currently under limited availability for selected
+advertisers. Please contact your Google representative for more information.
+LMMM version will be sunset once Meridian has reached general availability.
+
 ### LMMM is a python library that helps organisations understand and optimise marketing spend across media channels.
 ##### This is not an official Google product.
 
