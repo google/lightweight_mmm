@@ -67,6 +67,7 @@ _NAMES_TO_MODEL_TRANSFORMS = immutabledict.immutabledict({
     "carryover": models.transform_carryover
 })
 _MODEL_FUNCTION = models.media_mix_model
+_DETERMINISTIC_VARIABLES = ("media_transformed", "mu")
 
 
 def _compare_equality_for_lmmm(item_1: Any, item_2: Any) -> bool:
@@ -440,6 +441,10 @@ class LightweightMMM:
     Returns:
       The predictions for the given data.
     """
+    # Remove deterministic variables like "mu" from the posterior.
+    posterior_samples = posterior_samples.copy()
+    for name in _DETERMINISTIC_VARIABLES:
+      posterior_samples.pop(name, None)
     return infer.Predictive(
         model=model, posterior_samples=posterior_samples)(
             rng_key=rng_key,
