@@ -104,7 +104,7 @@ point. The necessary data will be:
 
 ```python
 # Let's assume we have the following datasets with the following shapes (we use
-the `simulate_dummy_data` function in utils for this example):
+# the `simulate_dummy_data` function in utils for this example):
 media_data, extra_features, target, costs = utils.simulate_dummy_data(
     data_size=160,
     n_media_channels=3,
