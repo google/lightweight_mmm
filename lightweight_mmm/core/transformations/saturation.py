@@ -62,7 +62,7 @@ def hill(
     custom_priors: The custom priors we want the model to take instead of the
       default ones. The possible names of parameters for hill_adstock and
       exponent are "lag_weight", "half_max_effective_concentration" and "slope".
-    prefix: Prefix to use in the variable name for Numpyro.
+    prefix: Prefix to use in the variable name for NumPyro.
 
   Returns:
     The transformed media data.
@@ -112,7 +112,7 @@ def exponent(
       national models and 3 for geo models.
     custom_priors: The custom priors we want the model to take instead of the
       default ones.
-    prefix: Prefix to use in the variable name for Numpyro.
+    prefix: Prefix to use in the variable name for NumPyro.
 
   Returns:
     The transformed media data.
