@@ -95,7 +95,7 @@ def carryover(
     custom_priors: The custom priors we want the model to take instead of the
       default ones.
     number_lags: Number of lags for the carryover function.
-    prefix: Prefix to use in the variable name for Numpyro.
+    prefix: Prefix to use in the variable name for NumPyro.
 
   Returns:
     The transformed media data.
@@ -178,7 +178,7 @@ def adstock(
       default ones. The possible names of parameters for adstock and exponent
       are "lag_weight" and "exponent".
     normalise: Whether to normalise the output values.
-    prefix: Prefix to use in the variable name for Numpyro.
+    prefix: Prefix to use in the variable name for NumPyro.
 
   Returns:
     The transformed media data.

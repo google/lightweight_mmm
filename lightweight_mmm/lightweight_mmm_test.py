@@ -210,7 +210,7 @@ class LightweightMmmTest(parameterized.TestCase):
 
     with self.assertRaisesRegex(
         ValueError,
-        "Priors given must be a Numpyro distribution or one of the "):
+        "Priors given must be a NumPyro distribution or one of the "):
       mmm_object.fit(
           media=media,
           target=target,
