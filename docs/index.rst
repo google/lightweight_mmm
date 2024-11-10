@@ -8,7 +8,7 @@ library that allows users to easily train MMMs and obtain channel attribution
 information. The library also includes capabilities for optimizing media 
 allocation as well as plotting common graphs in the field.
 
-It is built in python3 and makes use of Numpyro and JAX.
+It is built in python3 and makes use of NumPyro and JAX.
 
 Installation
 ------------

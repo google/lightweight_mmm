@@ -39,7 +39,7 @@ Taking a Bayesian approach to MMM allows an advertiser to integrate prior inform
 - Report on both parameter and model uncertainty and propagate it to your budget optimisation.
 - Construct hierarchical models, with generally tighter credible intervals, using breakout dimensions such as geography.
 
-The LightweightMMM package (built using [Numpyro](https://github.com/pyro-ppl/numpyro) and [JAX](https://github.com/google/jax)) helps advertisers easily build Bayesian MMM models by providing the functionality to appropriately scale data, evaluate models, optimise budget allocations and plot common graphs used in the field.
+The LightweightMMM package (built using [NumPyro](https://github.com/pyro-ppl/numpyro) and [JAX](https://github.com/google/jax)) helps advertisers easily build Bayesian MMM models by providing the functionality to appropriately scale data, evaluate models, optimise budget allocations and plot common graphs used in the field.
 
 ## Theory
 
