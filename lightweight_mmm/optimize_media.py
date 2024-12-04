@@ -53,7 +53,8 @@ def _objective_function(
       training and prediction starts 2 months after training data finished we
       need to provide the 8 weeks missing between the training data and the
       prediction data so data transformations (adstock, carryover, ...) can take
-      place correctly.
+      place correctly. Must be scaled with the media scaler that was used to scale
+      the media data before training.
     target_scaler: Scaler that was used to scale the target before training.
     media_scaler: Scaler that was used to scale the media data before training.
     geo_ratio: The ratio to split channel media across geo. Should sum up to 1
@@ -215,7 +216,8 @@ def find_optimal_budgets(
       training and prediction starts 8 weeks after training data finished we
       need to provide the 8 weeks missing between the training data and the
       prediction data so data transformations (adstock, carryover, ...) can take
-      place correctly.
+      place correctly. Must be scaled with the media scaler that was used to scale
+      the media data before training.
     target_scaler: Scaler that was used to scale the target before training.
     media_scaler: Scaler that was used to scale the media data before training.
     bounds_lower_pct: Relative percentage decrease from the mean value to
