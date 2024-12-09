@@ -16,7 +16,7 @@ Installation
 We have kept JAX as part of the dependencies to install when installing
 LightweightMMM, however if you wish to install a different version of JAX or 
 jaxlib for specific CUDA/CuDNN versions see 
-https://github.com/google/jax#pip-installation for instructions on installing 
+https://github.com/jax-ml/jax?tab=readme-ov-file#instructions for instructions on installing 
 JAX. Otherwise our installation assumes a CPU setup.
 
 The recommended way of installing lightweight_mmm is through PyPi:
