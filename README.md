@@ -4,11 +4,14 @@
 
 ## New Google MMM
 
-As of 7 March 2024 Google has released a new official Bayesian MMM version called
-**Meridian**. Meridian is currently under limited availability for selected
-advertisers. Please visit this [site](https://developers.google.com/meridian)
+As of 29 Jan 2025 Google has released a new official Bayesian MMM version called
+**Meridian** available at https://github.com/google/meridian.
+
+Please visit this [site](https://developers.google.com/meridian)
 or contact your Google representative for more information.
-LMMM version will be sunset once Meridian has reached general availability.
+
+Note that LMMM is not supported anymore, so we **highly** recommend you switch
+to Meridian.
 
 ### LMMM is a python library that helps organisations understand and optimise marketing spend across media channels.
 ##### This is not an official Google product.
