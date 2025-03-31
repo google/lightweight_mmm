@@ -52,4 +52,4 @@ def simple_intercept(
         fn=custom_priors.get(priors.INTERCEPT,
                              default_priors[priors.INTERCEPT]),
     )
-  return intercept
+  return jnp.asarray(intercept)

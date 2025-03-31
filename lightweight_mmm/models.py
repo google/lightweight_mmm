@@ -420,8 +420,9 @@ def media_mix_model(
       plate_prefixes = ("extra_feature", "geo")
       extra_features_einsum = "tfg, fg -> tg"  # t = time, f = feature, g = geo
       extra_features_plates_shape = (extra_features.shape[1], *geo_shape)
-    with numpyro.plate_stack(plate_prefixes,
-                             sizes=extra_features_plates_shape):
+    with numpyro.plate_stack(
+        str(plate_prefixes), sizes=list(extra_features_plates_shape)
+    ):
       coef_extra_features = numpyro.sample(
           name=_COEF_EXTRA_FEATURES,
           fn=custom_priors.get(
