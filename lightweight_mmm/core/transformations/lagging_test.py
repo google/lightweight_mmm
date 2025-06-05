@@ -215,7 +215,7 @@ class LaggingTest(parameterized.TestCase):
 
     generated_output = lagging._adstock(data=data, lag_weight=lag_weight)
 
-    np.testing.assert_array_equal(x=generated_output, y=data)
+    np.testing.assert_array_equal(generated_output, data)
 
   def test_carryover_zeros_stay_zeros(self):
     data = jnp.zeros((10, 5))
@@ -229,7 +229,7 @@ class LaggingTest(parameterized.TestCase):
         number_lags=7,
     )
 
-    np.testing.assert_array_equal(x=generated_output, y=data)
+    np.testing.assert_array_equal(generated_output, data)
 
 
 if __name__ == "__main__":

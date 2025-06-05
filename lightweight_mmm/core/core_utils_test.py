@@ -29,7 +29,7 @@ class CoreUtilsTest(absltest.TestCase):
 
     output = core_utils.apply_exponent_safe(data=data, exponent=exponent)
 
-    np.testing.assert_array_equal(x=output, y=data**exponent)
+    np.testing.assert_array_equal(output, data**exponent)
 
   def test_apply_exponent_safe_produces_correct_shape(self):
     data = jnp.ones((10, 5))

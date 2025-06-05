@@ -126,7 +126,7 @@ class MediaTransformsTest(parameterized.TestCase):
 
     output = media_transforms.apply_exponent_safe(data=data, exponent=exponent)
 
-    np.testing.assert_array_equal(x=output, y=data**exponent)
+    np.testing.assert_array_equal(output, data**exponent)
 
   def test_apply_exponent_safe_produces_same_exponent_results(self):
     data = jnp.ones((10, 5))
@@ -156,7 +156,7 @@ class MediaTransformsTest(parameterized.TestCase):
     generated_output = media_transforms.adstock(
         data=data, lag_weight=lag_weight)
 
-    np.testing.assert_array_equal(x=generated_output, y=data)
+    np.testing.assert_array_equal(generated_output, data)
 
   def test_hill_zeros_stay_zeros(self):
     data = jnp.zeros((10, 5))
@@ -168,7 +168,7 @@ class MediaTransformsTest(parameterized.TestCase):
         half_max_effective_concentration=half_max_effective_concentration,
         slope=slope)
 
-    np.testing.assert_array_equal(x=generated_output, y=data)
+    np.testing.assert_array_equal(generated_output, data)
 
   def test_carryover_zeros_stay_zeros(self):
     data = jnp.zeros((10, 5))
@@ -180,7 +180,7 @@ class MediaTransformsTest(parameterized.TestCase):
         ad_effect_retention_rate=ad_effect_retention_rate,
         peak_effect_delay=peak_effect_delay)
 
-    np.testing.assert_array_equal(x=generated_output, y=data)
+    np.testing.assert_array_equal(generated_output, data)
 
 
 @parameterized.parameters(range(1, 5))

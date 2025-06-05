@@ -186,8 +186,8 @@ class TrendTest(parameterized.TestCase):
         variance_slope=variance_slope,
     )
 
-    np.testing.assert_array_equal(x=dynamic_trend_values,
-                                  y=dynamic_trend_expected_value)
+    np.testing.assert_array_equal(dynamic_trend_values,
+                                  dynamic_trend_expected_value)
 
   @parameterized.named_parameters([
       dict(

@@ -188,7 +188,7 @@ class SaturationTest(parameterized.TestCase):
         slope=slope,
     )
 
-    np.testing.assert_array_equal(x=generated_output, y=data)
+    np.testing.assert_array_equal(generated_output, data)
 
   def test_exponent_zeros_stay_zero(self):
     data = jnp.zeros((10, 5))
@@ -199,7 +199,7 @@ class SaturationTest(parameterized.TestCase):
         exponent_values=exponent_values,
     )
 
-    np.testing.assert_array_equal(x=generated_output, y=data)
+    np.testing.assert_array_equal(generated_output, data)
 
 
 if __name__ == "__main__":
