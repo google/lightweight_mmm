@@ -84,7 +84,7 @@ def adstock(data: jnp.ndarray,
     adstock_value = prev_adstock * lag_weight + data
     return adstock_value, adstock_value# jax-ndarray
 
-  _, adstock_values = jax.lax.scan(
+  _, adstock_values = jax.lax.scan(# lax-types
       f=adstock_internal, init=data[0, ...], xs=data[1:, ...])
   adstock_values = jnp.concatenate([jnp.array([data[0, ...]]), adstock_values])
   return jax.lax.cond(
