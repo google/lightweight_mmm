@@ -62,7 +62,7 @@ We might make the model multiplicative in future versions, but to keep simple an
 
 *How does MCMC sampling works in LMMM?*
 
-LMMM uses the [NUTS algorithm](https://mc-stan.org/docs/2_18/stan-users-guide/sampling-difficulties-with-problematic-priors.html) to solve the budget allocation question. NUTS only cares about priors and posteriors for each parameter and uses all of the data.
+LMMM uses the [NUTS algorithm](https://mc-stan.org/docs/stan-users-guide/problematic-posteriors.html#no-u-turn-sampling) to solve the budget allocation question. NUTS only cares about priors and posteriors for each parameter and uses all of the data.
 
 ## Evaluation
 
