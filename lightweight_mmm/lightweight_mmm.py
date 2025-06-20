@@ -64,7 +64,8 @@ Prior = Union[
 _NAMES_TO_MODEL_TRANSFORMS = immutabledict.immutabledict({
     "hill_adstock": models.transform_hill_adstock,
     "adstock": models.transform_adstock,
-    "carryover": models.transform_carryover
+    "carryover": models.transform_carryover,
+    "hill_carryover": models.transform_hill_carryover
 })
 _MODEL_FUNCTION = models.media_mix_model
 _DETERMINISTIC_VARIABLES = ("media_transformed", "mu")
