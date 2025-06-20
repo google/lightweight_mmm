@@ -1,0 +1,116 @@
+[tool.poetry]
+name = "lightweight_mmm"
+version = "0.1.9"
+description = "Package for Media-Mix-Modelling"
+authors = ["Google LLC <no-reply@google.com>"]
+license = "Apache-2.0"
+readme = "README.md"
+homepage = "https://github.com/google/lightweight_mmm"
+repository = "https://github.com/google/lightweight_mmm"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12"
+]
+packages = [{include = "lightweight_mmm"}]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+absl-py = "*"
+arviz = ">=0.11.2"
+immutabledict = ">=2.0.0"
+jax = ">=0.3.18"
+jaxlib = ">=0.3.18"
+matplotlib = "==3.6.1"
+numpy = ">=1.21.0"
+numpyro = ">=0.9.2"
+pandas = ">=1.1.5"
+scipy = "*"
+seaborn = "==0.11.1"
+scikit-learn = "*"
+statsmodels = ">=0.13.0"
+tensorflow = ">=2.7.2"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.0"
+pytest-cov = "^4.1.0"
+pytest-mock = "^3.11.1"
+pytest-xdist = "^3.3.1"
+
+[tool.poetry.scripts]
+test = "pytest:main"
+tests = "pytest:main"
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--cov=lightweight_mmm",
+    "--cov-report=term-missing:skip-covered",
+    "--cov-report=html",
+    "--cov-report=xml",
+    "--cov-fail-under=80",
+    "-vv",
+    "--tb=short",
+    "--maxfail=3"
+]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "unit: marks tests as unit tests (fast, isolated)",
+    "integration: marks tests as integration tests (may be slower)",
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')"
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning"
+]
+
+[tool.coverage.run]
+source = ["lightweight_mmm"]
+branch = true
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+    "*/conftest.py",
+    "*/setup.py",
+    "*/.venv/*",
+    "*/venv/*"
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if __name__ == .__main__.:",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if False:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod"
+]
+show_missing = true
+precision = 2
+fail_under = 80
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.coverage.xml]
+output = "coverage.xml"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
